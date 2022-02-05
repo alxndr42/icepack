@@ -1,0 +1,2 @@
+class InvalidArchiveError(Exception):
+    pass
