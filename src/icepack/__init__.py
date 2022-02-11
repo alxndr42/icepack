@@ -4,12 +4,13 @@ from pathlib import Path
 from shutil import copyfileobj, rmtree
 
 from icepack.error import InvalidArchiveError
-from icepack.helper import File, Zip
+from icepack.helper import Age, File, Zip
 
 
 _BUFFER_SIZE = 64 * 1024
 _VALID_CHECKSUM = ['sha256']
 _VALID_COMPRESSION = ['bz2']
+_VALID_ENCRYPTION = ['age']
 
 
 # TODO Add context manager functions
@@ -33,6 +34,8 @@ class Icepack():
             self._zipfile = Zip(self.path, mode='w')
             self.metadata = {
                 'checksum_function': 'sha256',
+                'encryption': 'age',
+                'entry_key': Age.keygen()[0],
                 'entries': [],
             }
             self._index = 1
@@ -50,14 +53,17 @@ class Icepack():
             stat = source.stat()
             entry['size'] = stat.st_size
             entry['compression'] = 'bz2'
-            temp_path = File.mktemp(parent=self._temp_dir)
+            bz2_path = File.mktemp(parent=self._temp_dir)
             with open(source, 'rb') as src:
-                with bz2.open(temp_path, 'wb') as bz2_file:
+                with bz2.open(bz2_path, 'wb') as bz2_file:
                     copyfileobj(src, bz2_file, _BUFFER_SIZE)
-            entry['stored_size'] = temp_path.stat().st_size
-            entry['stored_checksum'] = File.sha256(temp_path)
-            self._zipfile.add_entry(key, temp_path)
-            temp_path.unlink()
+            age_path = File.mktemp(parent=self._temp_dir)
+            Age.encrypt(bz2_path, age_path, self.metadata['entry_key'])
+            bz2_path.unlink()
+            entry['stored_size'] = age_path.stat().st_size
+            entry['stored_checksum'] = File.sha256(age_path)
+            self._zipfile.add_entry(key, age_path)
+            age_path.unlink()
         else:
             self._zipfile.add_entry(key, None)
         self.metadata['entries'].append(entry)
@@ -83,37 +89,41 @@ class Icepack():
         if name.endswith('/'):
             entry_path.mkdir(parents=True, exist_ok=True)
             return entry_path
-        entry_temp = self._zipfile.extract_entry(entry['key'])
-        entry_stat = entry_temp.stat()
-        if entry_stat.st_size != entry['stored_size']:
+        age_path = self._zipfile.extract_entry(entry['key'])
+        age_stat = age_path.stat()
+        if age_stat.st_size != entry['stored_size']:
             raise InvalidArchiveError('Incorrect file size.')
-        if File.sha256(entry_temp) != entry['stored_checksum']:
+        if File.sha256(age_path) != entry['stored_checksum']:
             raise InvalidArchiveError('Incorrect checksum.')
+        bz2_path = File.mktemp(parent=self._temp_dir)
+        Age.decrypt(age_path, bz2_path, self.metadata['entry_key'])
+        age_path.unlink()
         entry_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(entry_temp, 'rb') as temp_file:
-            with bz2.open(temp_file, 'rb') as src:
+        with open(bz2_path, 'rb') as bz2_file:
+            with bz2.open(bz2_file, 'rb') as src:
                 with open(entry_path, 'wb') as dst:
                     copyfileobj(src, dst, _BUFFER_SIZE)
-        entry_temp.unlink()
+        bz2_path.unlink()
         return entry_path
 
     def _add_metadata(self):
         """Add the metadata file."""
         temp_path = File.mktemp(parent=self._temp_dir)
-        with open(temp_path, 'wb') as temp_file:
-            with bz2.open(temp_file, 'wt') as bz2_file:
-                json.dump(self.metadata, bz2_file)
+        json_bytes = json.dumps(self.metadata).encode()
+        bz2_bytes = bz2.compress(json_bytes)
+        temp_path.write_bytes(bz2_bytes)
         self._zipfile.add_metadata(temp_path)
         temp_path.unlink()
 
     def _load_metadata(self):
         """Extract and validate the metadata."""
         temp_path = self._zipfile.extract_metadata()
-        with bz2.open(temp_path) as temp_file:
-            metadata = json.load(temp_file)
-        temp_path.unlink()
+        bz2_bytes = temp_path.read_bytes()
+        json_bytes = bz2.decompress(bz2_bytes)
+        metadata = json.loads(json_bytes)
         self._validate_metadata(metadata)
         self.metadata = metadata
+        temp_path.unlink()
 
     @staticmethod
     def _archive_name(source, base_path):
@@ -134,6 +144,13 @@ class Icepack():
             raise InvalidArchiveError('Invalid metadata.')
         if checksum_function not in _VALID_CHECKSUM:
             raise InvalidArchiveError(f'Unsupported checksum function: {checksum_function}')  # noqa
+        encryption = metadata.get('encryption')
+        if type(encryption) != str:
+            raise InvalidArchiveError('Invalid metadata.')
+        if encryption not in _VALID_ENCRYPTION:
+            raise InvalidArchiveError(f'Unsupported encryption: {encryption}')  # noqa
+        if type(metadata.get('entry_key')) != str:
+            raise InvalidArchiveError('Invalid metadata.')
         if type(metadata.get('entries')) != list:
             raise InvalidArchiveError('Invalid metadata.')
         for entry in metadata.get('entries'):

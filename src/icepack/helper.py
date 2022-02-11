@@ -2,6 +2,7 @@ import hashlib
 import os
 from pathlib import Path
 from shutil import copyfileobj, rmtree
+import subprocess
 import tempfile
 
 from zipfile import ZIP_STORED, is_zipfile, ZipFile, ZipInfo
@@ -11,6 +12,60 @@ from icepack.meta import NAME
 
 
 _BUFFER_SIZE = 64 * 1024
+_PUBLIC_KEY_PREFIX = 'age'
+_SECRET_KEY_PREFIX = 'AGE-SECRET-KEY-'
+
+
+class Age():
+    """age encryption helpers."""
+
+    @staticmethod
+    def keygen():
+        """Return a (secret_key, public_key) from age-keygen."""
+        secret_key = None
+        public_key = None
+        result = subprocess.run(
+            ['age-keygen'],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True)
+        for line in result.stdout.split('\n'):
+            if line.startswith(_SECRET_KEY_PREFIX):
+                secret_key = line.strip()
+                break
+        else:
+            raise Exception('No secret key in age-keygen output.')
+        result = subprocess.run(
+            ['age-keygen', '-y'],
+            input=secret_key,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True)
+        if result.stdout.startswith(_PUBLIC_KEY_PREFIX):
+            public_key = result.stdout.strip()
+        else:
+            raise Exception('No public key in age-keygen output.')
+        return secret_key, public_key
+
+    @staticmethod
+    def encrypt(src_path, dst_path, secret_key):
+        """Encrypt src_path to dst_path, pass secret_key to age STDIN."""
+        subprocess.run(
+            ['age', '-e', '-i', '-', '-o', str(dst_path), str(src_path)],
+            input=secret_key,
+            text=True,
+            check=True)
+
+    @staticmethod
+    def decrypt(src_path, dst_path, secret_key):
+        """Decrypt src_path to dst_path, pass secret_key to age STDIN."""
+        subprocess.run(
+            ['age', '-d', '-i', '-', '-o', str(dst_path), str(src_path)],
+            input=secret_key,
+            text=True,
+            check=True)
 
 
 class File():
