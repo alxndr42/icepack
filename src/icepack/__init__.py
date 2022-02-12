@@ -4,7 +4,7 @@ from pathlib import Path
 from shutil import copyfileobj, rmtree
 
 from icepack.error import InvalidArchiveError
-from icepack.helper import Age, File, Zip
+from icepack.helper import Age, File, SSH, Zip
 
 
 _BUFFER_SIZE = 64 * 1024
@@ -17,7 +17,7 @@ _VALID_ENCRYPTION = ['age']
 class Icepack():
     """icepack archive manager."""
 
-    def __init__(self, path, mode='r'):
+    def __init__(self, path, key_path, mode='r'):
         if mode not in ['r', 'w']:
             raise Exception(f'Unsupported mode: {mode}')
         if mode == 'r' and not path.is_file():
@@ -25,6 +25,17 @@ class Icepack():
         elif mode == 'w' and path.is_dir():
             raise Exception(f'Invalid archive path: {path}')
         self.path = path.resolve()
+        if not isinstance(key_path, Path):
+            raise Exception(f'Invalid key path: {key_path}')
+        self.secret_key = key_path / 'identity'
+        self.public_key = key_path / 'identity.pub'
+        self.allowed_signers = key_path / 'allowed_signers'
+        if not self.secret_key.is_file():
+            raise Exception(f'Invalid secret key: {self.secret_key}')
+        if not self.public_key.is_file():
+            raise Exception(f'Invalid public key: {self.public_key}')
+        if not self.allowed_signers.is_file():
+            raise Exception(f'Invalid allowed_signers: {self.allowed_signers}')
         self._mode = mode
         self._temp_dir = File.mktemp(directory=True)
         if mode == 'r':
@@ -108,22 +119,27 @@ class Icepack():
 
     def _add_metadata(self):
         """Add the metadata file."""
-        temp_path = File.mktemp(parent=self._temp_dir)
         json_bytes = json.dumps(self.metadata).encode()
         bz2_bytes = bz2.compress(json_bytes)
-        temp_path.write_bytes(bz2_bytes)
-        self._zipfile.add_metadata(temp_path)
-        temp_path.unlink()
+        meta_path = File.mktemp(parent=self._temp_dir)
+        recipient = self.public_key.read_text()
+        Age.encrypt_bytes(bz2_bytes, meta_path, recipient)
+        sig_path = SSH.sign(meta_path, self.secret_key)
+        self._zipfile.add_metadata(meta_path, sig_path)
+        meta_path.unlink()
+        sig_path.unlink()
 
     def _load_metadata(self):
         """Extract and validate the metadata."""
-        temp_path = self._zipfile.extract_metadata()
-        bz2_bytes = temp_path.read_bytes()
+        meta_path, sig_path = self._zipfile.extract_metadata()
+        SSH.verify(meta_path, sig_path, self.allowed_signers)
+        bz2_bytes = Age.decrypt_bytes(meta_path, self.secret_key)
         json_bytes = bz2.decompress(bz2_bytes)
         metadata = json.loads(json_bytes)
         self._validate_metadata(metadata)
         self.metadata = metadata
-        temp_path.unlink()
+        meta_path.unlink()
+        sig_path.unlink()
 
     @staticmethod
     def _archive_name(source, base_path):
@@ -173,7 +189,7 @@ class Icepack():
                 raise InvalidArchiveError('Invalid metadata.')
 
 
-def create_archive(src_path, dst_path, log=lambda msg: None):
+def create_archive(src_path, dst_path, key_path, log=lambda msg: None):
     """Create an archive at dst_path from src_path."""
     src_path = src_path.resolve()
     dst_path = dst_path.resolve()
@@ -184,7 +200,7 @@ def create_archive(src_path, dst_path, log=lambda msg: None):
     else:
         raise Exception(f'Invalid source: {src_path}')
     base = src_path.parent
-    archive = Icepack(dst_path, mode='w')
+    archive = Icepack(dst_path, key_path, mode='w')
     try:
         for source in sources:
             log(source.relative_to(base))
@@ -193,13 +209,13 @@ def create_archive(src_path, dst_path, log=lambda msg: None):
         archive.close()
 
 
-def extract_archive(src_path, dst_path, log=lambda msg: None):
+def extract_archive(src_path, dst_path, key_path, log=lambda msg: None):
     """Extract the archive at src_path to dst_path."""
     src_path = src_path.resolve()
     dst_path = dst_path.resolve()
     if not dst_path.is_dir():
         raise Exception(f'Invalid destination: {dst_path}')
-    archive = Icepack(src_path)
+    archive = Icepack(src_path, key_path)
     try:
         for entry in archive.metadata['entries']:
             log(entry['name'])

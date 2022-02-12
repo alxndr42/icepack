@@ -67,6 +67,23 @@ class Age():
             text=True,
             check=True)
 
+    @staticmethod
+    def encrypt_bytes(data, dst_path, recipient):
+        """Encrypt data via age STDIN."""
+        subprocess.run(
+            ['age', '-e', '-r', recipient, '-o', str(dst_path)],
+            input=data,
+            check=True)
+
+    @staticmethod
+    def decrypt_bytes(src_path, identity):
+        """Decrypt src_path via age STDOUT."""
+        result = subprocess.run(
+            ['age', '-d', '-i', str(identity), str(src_path)],
+            capture_output=True,
+            check=True)
+        return result.stdout
+
 
 class File():
     """File operation helpers."""
@@ -104,6 +121,44 @@ class File():
         return d.hexdigest()
 
 
+class SSH():
+    """ssh-keygen signing helpers."""
+
+    @staticmethod
+    def sign(data_path, secret_key):
+        """Sign data_path with ssh-keygen."""
+        subprocess.run(
+            [
+                'ssh-keygen',
+                '-Y', 'sign',
+                '-f', secret_key,
+                '-n', NAME,
+                '-q',
+                data_path
+            ],
+            check=True)
+        sig_path = data_path.parent / (data_path.name + '.sig')
+        if not sig_path.is_file():
+            raise Exception(f'{sig_path} not found.')
+        return sig_path
+
+    @staticmethod
+    def verify(data_path, sig_path, allowed_signers):
+        """Verify the signature with ssh-keygen."""
+        subprocess.run(
+            [
+                'ssh-keygen',
+                '-Y', 'verify',
+                '-f', allowed_signers,
+                '-I', NAME,
+                '-n', NAME,
+                '-s', sig_path,
+                '-q'
+            ],
+            input=data_path.read_bytes(),
+            check=True)
+
+
 class Zip():
     """Zip archive helper."""
 
@@ -139,16 +194,17 @@ class Zip():
             with open(path, 'rb') as src:
                 copyfileobj(src, dst, _BUFFER_SIZE)
 
-    def add_metadata(self, path):
-        """Add the metadata file."""
+    def add_metadata(self, data_path, sig_path):
+        """Add the metadata and signature files."""
         if self._mode != 'w':
             raise Exception('Not in write mode.')
         if 'metadata' in self._entries:
             raise InvalidArchiveError(f'Metadata file already added.')
         info = ZipInfo('metadata')
+        info.comment = sig_path.read_bytes()
         self._entries['metadata'] = info
         with self._zipfile.open(info, mode='w', force_zip64=True) as dst:
-            with open(path, 'rb') as src:
+            with open(data_path, 'rb') as src:
                 copyfileobj(src, dst, _BUFFER_SIZE)
 
     def close(self):
@@ -169,12 +225,14 @@ class Zip():
         return path
 
     def extract_metadata(self):
-        """Extract the metadata file and return its temporary Path."""
+        """Return a tuple of temporary Paths for metadata and signature."""
         if self._mode != 'r':
             raise Exception('Not in read mode.')
         info = self._entries['metadata']
-        path = Path(self._zipfile.extract(info, path=self._temp_dir))
-        return path
+        meta_path = Path(self._zipfile.extract(info, path=self._temp_dir))
+        sig_path = meta_path.parent / (meta_path.name + '.sig')
+        sig_path.write_bytes(info.comment)
+        return meta_path, sig_path
 
     @staticmethod
     def _validate_infolist(infolist):
@@ -183,6 +241,8 @@ class Zip():
             raise InvalidArchiveError('Empty Zip.')
         if infolist[-1].filename != 'metadata':
             raise InvalidArchiveError('No metadata file at end of Zip.')
+        if infolist[-1].comment is None:
+            raise InvalidArchiveError('No metadata signature.')
         filenames = {i.filename for i in infolist}
         if len(filenames) != len(infolist):
             raise InvalidArchiveError(f'Duplicate filename in Zip.')

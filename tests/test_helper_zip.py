@@ -23,7 +23,8 @@ class TestWriteMode:
     def test_write_mode(self, src_path, zip_file):
         zip_file.add_entry('foo', src_path / 'foo')
         zip_file.add_entry('bar', None)
-        zip_file.add_metadata(src_path / 'qux' / 'quux')
+        meta_path = src_path / 'qux' / 'quux'
+        zip_file.add_metadata(meta_path, meta_path)
         zip_file.close()
         with ZipFile(zip_file.path) as zip_file:
             assert zip_file.testzip() is None
@@ -39,15 +40,17 @@ class TestWriteMode:
             zip_file.add_entry('foo', src_path / 'foo')
 
     def test_add_metadata_twice(self, src_path, zip_file):
-        zip_file.add_metadata(src_path / 'foo')
+        foo = src_path / 'foo'
+        zip_file.add_metadata(foo, foo)
         with pytest.raises(InvalidArchiveError):
-            zip_file.add_metadata(src_path / 'foo')
+            zip_file.add_metadata(foo, foo)
 
     def test_add_entry_after_metdata(self, src_path, zip_file):
-        zip_file.add_entry('foo', src_path / 'foo')
-        zip_file.add_metadata(src_path / 'foo')
+        foo = src_path / 'foo'
+        zip_file.add_entry('foo', foo)
+        zip_file.add_metadata(foo, foo)
         with pytest.raises(InvalidArchiveError):
-            zip_file.add_entry('bar', src_path / 'foo')
+            zip_file.add_entry('bar', foo)
 
 
 class TestReadMode:
@@ -58,8 +61,9 @@ class TestReadMode:
         zip_file = Zip(path)
         path = zip_file.extract_entry('foo')
         assert File.sha256(path) == 'b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c'  # noqa
-        path = zip_file.extract_metadata()
+        path, sig = zip_file.extract_metadata()
         assert File.sha256(path) == '49ae93732fcf8d63fe1cce759664982dbd5b23161f007dba8561862adc96d063'  # noqa
+        assert File.sha256(sig) == '49ae93732fcf8d63fe1cce759664982dbd5b23161f007dba8561862adc96d063'  # noqa
         zip_file.close()
 
     def test_regular_zip(self, shared_datadir):

@@ -34,8 +34,9 @@ def create(ctx, src, dst):
     """
     src_path = Path(src)
     dst_path = Path(dst)
+    key_path = ctx.obj['config_path']
     try:
-        create_archive(src_path, dst_path, log=click.echo)
+        create_archive(src_path, dst_path, key_path, log=click.echo)
     except Exception as e:
         raise click.ClickException(f'Archive creation failed: {e}')
 
@@ -51,8 +52,9 @@ def extract(ctx, src, dst):
     """
     src_path = Path(src)
     dst_path = Path(dst)
+    key_path = ctx.obj['config_path']
     try:
-        extract_archive(src_path, dst_path, log=click.echo)
+        extract_archive(src_path, dst_path, key_path, log=click.echo)
     except Exception as e:
         raise click.ClickException(f'Archive extraction failed: {e}')
 
