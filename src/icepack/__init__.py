@@ -44,6 +44,7 @@ class Icepack():
         else:
             self._zipfile = Zip(self.path, mode='w')
             self.metadata = {
+                'archive_name': path.name,
                 'checksum_function': 'sha256',
                 'encryption': 'age',
                 'entry_key': Age.keygen()[0],
@@ -155,6 +156,8 @@ class Icepack():
         """Check metadata for validity."""
         if type(metadata) != dict:
             raise InvalidArchiveError('Invalid metadata.')
+        if type(metadata.get('archive_name')) != str:
+            raise InvalidArchiveError('Invalid metadata.')
         checksum_function = metadata.get('checksum_function')
         if type(checksum_function) != str:
             raise InvalidArchiveError('Invalid metadata.')
@@ -197,6 +200,7 @@ def create_archive(src_path, dst_path, key_path, log=lambda msg: None):
         sources = [src_path]
     elif src_path.is_dir():
         sources = list(File.children(src_path))
+        sources.sort(key=_source_key)
     else:
         raise Exception(f'Invalid source: {src_path}')
     base = src_path.parent
@@ -222,3 +226,11 @@ def extract_archive(src_path, dst_path, key_path, log=lambda msg: None):
             archive.extract_entry(entry, dst_path)
     finally:
         archive.close()
+
+
+def _source_key(path):
+    """Sort key for Paths."""
+    key = str(path).casefold()
+    if path.is_dir:
+        key += '/'
+    return key
