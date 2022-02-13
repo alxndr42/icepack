@@ -3,8 +3,28 @@ from subprocess import CalledProcessError
 import pytest
 
 from icepack.helper import SSH
+from icepack.meta import SECRET_KEY, PUBLIC_KEY, ALLOWED_SIGNERS
 
 from helper import key_path
+
+
+def test_keygen(shared_datadir):
+    """Test SSH.keygen()."""
+    key_path = shared_datadir / 'dst'
+    SSH.keygen(key_path)
+    assert (key_path / SECRET_KEY).is_file()
+    assert (key_path / PUBLIC_KEY).is_file()
+    assert (key_path / ALLOWED_SIGNERS).is_file()
+
+
+def test_keygen_twice(shared_datadir):
+    """Test SSH.keygen() on existing keys."""
+    key_path = shared_datadir / 'dst'
+    SSH.keygen(key_path)
+    secret_key = (key_path / SECRET_KEY).read_text()
+    with pytest.raises(Exception):
+        SSH.keygen(key_path)
+    assert (key_path / SECRET_KEY).read_text() == secret_key
 
 
 def test_sign_and_verify(shared_datadir, key_path):

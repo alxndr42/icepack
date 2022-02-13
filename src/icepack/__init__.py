@@ -5,6 +5,7 @@ from shutil import copyfileobj, rmtree
 
 from icepack.error import InvalidArchiveError
 from icepack.helper import Age, File, SSH, Zip
+from icepack.meta import SECRET_KEY, PUBLIC_KEY, ALLOWED_SIGNERS
 
 
 _BUFFER_SIZE = 64 * 1024
@@ -27,9 +28,9 @@ class Icepack():
         self.path = path.resolve()
         if not isinstance(key_path, Path):
             raise Exception(f'Invalid key path: {key_path}')
-        self.secret_key = key_path / 'identity'
-        self.public_key = key_path / 'identity.pub'
-        self.allowed_signers = key_path / 'allowed_signers'
+        self.secret_key = key_path / SECRET_KEY
+        self.public_key = key_path / PUBLIC_KEY
+        self.allowed_signers = key_path / ALLOWED_SIGNERS
         if not self.secret_key.is_file():
             raise Exception(f'Invalid secret key: {self.secret_key}')
         if not self.public_key.is_file():

@@ -3,7 +3,8 @@ from pathlib import Path
 import click
 
 from icepack import create_archive, extract_archive
-from icepack.meta import NAME
+from icepack.helper import SSH
+from icepack.meta import NAME, SECRET_KEY
 
 
 @click.group()
@@ -24,6 +25,19 @@ def icepack(ctx, config):
 
 
 @icepack.command()
+@click.pass_context
+def init(ctx):
+    """Initialize the keys."""
+    key_path = ctx.obj['config_path']
+    secret_key = key_path / SECRET_KEY
+    if secret_key.is_file():
+        raise click.ClickException(f'{secret_key} already exists.')
+    SSH.keygen(key_path)
+    click.echo(f'The keys have been initialized in {key_path}')
+    click.echo('Make sure to protect and backup this directory!')
+
+
+@icepack.command()
 @click.argument('src', type=click.Path(exists=True))
 @click.argument('dst', type=click.Path())
 @click.pass_context
@@ -35,6 +49,7 @@ def create(ctx, src, dst):
     src_path = Path(src)
     dst_path = Path(dst)
     key_path = ctx.obj['config_path']
+    _check_keys(key_path)
     try:
         create_archive(src_path, dst_path, key_path, log=click.echo)
     except Exception as e:
@@ -53,10 +68,18 @@ def extract(ctx, src, dst):
     src_path = Path(src)
     dst_path = Path(dst)
     key_path = ctx.obj['config_path']
+    _check_keys(key_path)
     try:
         extract_archive(src_path, dst_path, key_path, log=click.echo)
     except Exception as e:
         raise click.ClickException(f'Archive extraction failed: {e}')
+
+
+def _check_keys(key_path):
+    """Check if the keys have been initialized."""
+    if not (key_path / SECRET_KEY).is_file():
+        msg = f'Please run "{NAME} init" to initialize the keys.'
+        raise click.ClickException(msg)
 
 
 if __name__ == '__main__':

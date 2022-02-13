@@ -8,7 +8,7 @@ import tempfile
 from zipfile import ZIP_STORED, is_zipfile, ZipFile, ZipInfo
 
 from icepack.error import InvalidArchiveError
-from icepack.meta import NAME
+from icepack.meta import NAME, SECRET_KEY, PUBLIC_KEY, ALLOWED_SIGNERS
 
 
 _BUFFER_SIZE = 64 * 1024
@@ -122,7 +122,26 @@ class File():
 
 
 class SSH():
-    """ssh-keygen signing helpers."""
+    """ssh-keygen helpers."""
+
+    @staticmethod
+    def keygen(key_path):
+        """Generate the keys and allowed_signers."""
+        secret_key = key_path / SECRET_KEY
+        if secret_key.is_file():
+            raise Exception(f'{secret_key} already exists.')
+        subprocess.run(
+            [
+                'ssh-keygen',
+                '-t', 'ed25519',
+                '-C', '',
+                '-f', secret_key,
+                '-q'
+            ],
+            check=True)
+        public_key = (key_path / PUBLIC_KEY).read_text()
+        allowed_signers = f'{NAME} {public_key}'
+        (key_path / ALLOWED_SIGNERS).write_text(allowed_signers)
 
     @staticmethod
     def sign(data_path, secret_key):
