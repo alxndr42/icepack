@@ -68,12 +68,12 @@ class Age():
             check=True)
 
     @staticmethod
-    def encrypt_bytes(data, dst_path, recipient):
+    def encrypt_bytes(data, dst_path, recipients):
         """Encrypt data via age STDIN."""
-        subprocess.run(
-            ['age', '-e', '-r', recipient, '-o', str(dst_path)],
-            input=data,
-            check=True)
+        args = ['age', '-e', '-o', str(dst_path)]
+        for recipient in recipients:
+            args.extend(['-r', recipient])
+        subprocess.run(args, input=data, check=True)
 
     @staticmethod
     def decrypt_bytes(src_path, identity):

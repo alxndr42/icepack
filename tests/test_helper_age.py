@@ -21,3 +21,28 @@ def test_encrypt_decrypt(shared_datadir):
     dst = shared_datadir / 'dst' / 'foo'
     Age.decrypt(src, dst, secret_key)
     assert dst.read_text().strip() == 'foo'
+
+
+def test_encrypt_decrypt_bytes(shared_datadir):
+    """Test Age.encrypt_bytes() and Age.decrypt_bytes()."""
+    secret_key, public_key = Age.keygen()
+    foo_bytes = 'foo'.encode()
+    age_path = shared_datadir / 'dst' / 'foo.age'
+    Age.encrypt_bytes(foo_bytes, age_path, [public_key])
+    key_path = shared_datadir / 'dst' / 'age.key'
+    key_path.write_text(secret_key)
+    result = Age.decrypt_bytes(age_path, key_path)
+    assert result == foo_bytes
+
+
+def test_encrypt_decrypt_bytes_multiple_recipients(shared_datadir):
+    """Test encrypt_bytes() and decrypt_bytes() with multiple recipients."""
+    secret_foo, public_foo = Age.keygen()
+    secret_bar, public_bar = Age.keygen()
+    foo_bytes = 'foo'.encode()
+    age_path = shared_datadir / 'dst' / 'foo.age'
+    Age.encrypt_bytes(foo_bytes, age_path, [public_foo, public_bar])
+    key_path = shared_datadir / 'dst' / 'age.key'
+    key_path.write_text(secret_bar)
+    result = Age.decrypt_bytes(age_path, key_path)
+    assert result == foo_bytes

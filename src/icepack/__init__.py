@@ -18,7 +18,7 @@ _VALID_ENCRYPTION = ['age']
 class Icepack():
     """icepack archive manager."""
 
-    def __init__(self, path, key_path, mode='r'):
+    def __init__(self, path, key_path, mode='r', extra_recipients=None):
         if mode not in ['r', 'w']:
             raise Exception(f'Unsupported mode: {mode}')
         if mode == 'r' and not path.is_file():
@@ -52,6 +52,9 @@ class Icepack():
                 'entries': [],
             }
             self._index = 1
+            self._recipients = [self.public_key.read_text()]
+            if extra_recipients is not None:
+                self._recipients.extend(extra_recipients)
 
     def add_entry(self, source, base_path):
         """Add source to the archive."""
@@ -124,8 +127,7 @@ class Icepack():
         json_bytes = json.dumps(self.metadata).encode()
         bz2_bytes = bz2.compress(json_bytes)
         meta_path = File.mktemp(parent=self._temp_dir)
-        recipient = self.public_key.read_text()
-        Age.encrypt_bytes(bz2_bytes, meta_path, recipient)
+        Age.encrypt_bytes(bz2_bytes, meta_path, self._recipients)
         sig_path = SSH.sign(meta_path, self.secret_key)
         self._zipfile.add_metadata(meta_path, sig_path)
         meta_path.unlink()
@@ -193,7 +195,12 @@ class Icepack():
                 raise InvalidArchiveError('Invalid metadata.')
 
 
-def create_archive(src_path, dst_path, key_path, log=lambda msg: None):
+def create_archive(
+        src_path,
+        dst_path,
+        key_path,
+        extra_recipients=None,
+        log=lambda msg: None):
     """Create an archive at dst_path from src_path."""
     src_path = src_path.resolve()
     dst_path = dst_path.resolve()
@@ -205,7 +212,11 @@ def create_archive(src_path, dst_path, key_path, log=lambda msg: None):
     else:
         raise Exception(f'Invalid source: {src_path}')
     base = src_path.parent
-    archive = Icepack(dst_path, key_path, mode='w')
+    archive = Icepack(
+        dst_path,
+        key_path,
+        mode='w',
+        extra_recipients=extra_recipients)
     try:
         for source in sources:
             log(source.relative_to(base))

@@ -25,7 +25,7 @@ $ pip install icepack
 
 ## Usage
 
-Initialize the keys:
+### Initialize the keys
 
 ```bash
 $ icepack init
@@ -35,7 +35,7 @@ The keys have been initialized in /home/username/.config/icepack
 Make sure to protect and backup this directory!
 ```
 
-Create an archive:
+### Create an archive
 
 ```bash
 $ icepack create $HOME/Documents/ $HOME/my-documents.zip
@@ -47,7 +47,10 @@ Documents/world-domination.txt
 Enter passphrase: *****
 ```
 
-Extract an archive:
+You can allow additional recipients to extract the archive by passing their
+public keys via the `--recipient` option.
+
+### Extract an archive
 
 ```bash
 $ icepack extract $HOME/my-documents.zip $HOME/Documents/

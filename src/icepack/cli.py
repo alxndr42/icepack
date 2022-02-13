@@ -40,8 +40,12 @@ def init(ctx):
 @icepack.command()
 @click.argument('src', type=click.Path(exists=True))
 @click.argument('dst', type=click.Path())
+@click.option(
+    '--recipient', '-r',
+    help='Allow another recipient to extract the archive.',
+    multiple=True)
 @click.pass_context
-def create(ctx, src, dst):
+def create(ctx, src, dst, recipient):
     """Store files in an archive.
 
     SRC must be a file or directory, DST must be the archive file.
@@ -51,7 +55,12 @@ def create(ctx, src, dst):
     key_path = ctx.obj['config_path']
     _check_keys(key_path)
     try:
-        create_archive(src_path, dst_path, key_path, log=click.echo)
+        create_archive(
+            src_path,
+            dst_path,
+            key_path,
+            extra_recipients=recipient,
+            log=click.echo)
     except Exception as e:
         raise click.ClickException(f'Archive creation failed: {e}')
 
