@@ -3,3 +3,6 @@
 __pycache__/
 dist/
 tmp/
+
+# Files
+tests/data/keys/identity
