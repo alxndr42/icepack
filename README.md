@@ -17,7 +17,7 @@ Requirements:
 
 Install with `pip` or [pipx][]:
 
-```bash
+```
 $ pip install icepack
 ```
 
@@ -27,7 +27,7 @@ $ pip install icepack
 
 ### Initialize the keys
 
-```bash
+```
 $ icepack init
 Enter passphrase (empty for no passphrase): *****
 Enter same passphrase again: *****
@@ -37,7 +37,7 @@ Make sure to protect and backup this directory!
 
 ### Create an archive
 
-```bash
+```
 $ icepack create $HOME/Documents/ $HOME/my-documents.zip
 Documents/Cat Pictures
 Documents/Cat Pictures/awww.jpg
@@ -52,8 +52,8 @@ public keys via the `--recipient` option.
 
 ### Extract an archive
 
-```bash
-$ icepack extract $HOME/my-documents.zip $HOME/Documents/
+```
+$ icepack extract $HOME/my-documents.zip $HOME/
 Enter passphrase for "/home/username/.config/icepack/identity": *****
 Documents/Cat Pictures/
 Documents/Cat Pictures/awww.jpg
