@@ -3,8 +3,8 @@ from pathlib import Path
 import click
 
 from icepack import create_archive, extract_archive
-from icepack.helper import SSH
-from icepack.meta import NAME, SECRET_KEY
+from icepack.helper import Age, SSH
+from icepack.meta import NAME, VERSION, SECRET_KEY
 
 
 @click.group()
@@ -96,6 +96,37 @@ def list(ctx, src):
         extract_archive(src_path, None, key_path, log=click.echo)
     except Exception as e:
         raise click.ClickException(f'Archive listing failed: {e}')
+
+
+@icepack.command()
+@click.option(
+    '--dependencies', '-d',
+    help='Check the dependencies.',
+    is_flag=True)
+@click.pass_context
+def version(ctx, dependencies):
+    """Show the version information."""
+    click.echo(f'{NAME} {VERSION}')
+    if not dependencies:
+        return
+    age_version, age_keygen = Age.version()
+    if age_version:
+        click.echo(f'✅ age found. (Version: {age_version})')
+    else:
+        click.echo(f'❌ age not found.')
+    if age_keygen:
+        click.echo(f'✅ age-keygen found.')
+    else:
+        click.echo(f'❌ age-keygen not found.')
+    ssh_version, ssh_keygen = SSH.version()
+    if ssh_version:
+        click.echo(f'✅ ssh found. (Version: {ssh_version})')
+    else:
+        click.echo(f'❌ ssh not found.')
+    if ssh_keygen:
+        click.echo(f'✅ ssh-keygen found.')
+    else:
+        click.echo(f'❌ ssh-keygen not found.')
 
 
 def _check_keys(key_path):

@@ -61,3 +61,14 @@ Documents/Cat Pictures/grumpy.jpg
 Documents/Cat Pictures/socute.jpg
 Documents/world-domination.txt
 ```
+
+### Check the version and dependencies
+
+```
+$ icepack version --dependencies
+icepack 0.1.0
+✅ age found. (Version: v1.0.0)
+✅ age-keygen found.
+✅ ssh found. (Version: OpenSSH_8.2p1)
+✅ ssh-keygen found.
+```

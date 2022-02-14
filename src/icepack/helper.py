@@ -1,7 +1,7 @@
 import hashlib
 import os
 from pathlib import Path
-from shutil import copyfileobj, rmtree
+from shutil import copyfileobj, rmtree, which
 import subprocess
 import tempfile
 
@@ -83,6 +83,20 @@ class Age():
             capture_output=True,
             check=True)
         return result.stdout
+
+    @staticmethod
+    def version():
+        """Return the age version and age-keygen presence as a tuple."""
+        age_version = None
+        if which('age'):
+            result = subprocess.run(
+                ['age', '--version'],
+                capture_output=True,
+                text=True)
+            if result.returncode == 0:
+                age_version = result.stdout.strip()
+        age_keygen = bool(which('age-keygen'))
+        return age_version, age_keygen
 
 
 class File():
@@ -176,6 +190,21 @@ class SSH():
             ],
             input=data_path.read_bytes(),
             check=True)
+
+    @staticmethod
+    def version():
+        """Return the SSH version and ssh-keygen presence as a tuple."""
+        ssh_version = None
+        if which('ssh'):
+            result = subprocess.run(
+                ['ssh', '-V'],
+                capture_output=True,
+                text=True)
+            if result.returncode == 0:
+                ssh_version = result.stderr.strip()
+                ssh_version = ssh_version.split(' ')[0]
+        ssh_keygen = bool(which('ssh-keygen'))
+        return ssh_version, ssh_keygen
 
 
 class Zip():
