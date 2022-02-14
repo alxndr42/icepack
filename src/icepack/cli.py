@@ -84,6 +84,20 @@ def extract(ctx, src, dst):
         raise click.ClickException(f'Archive extraction failed: {e}')
 
 
+@icepack.command()
+@click.argument('src', type=click.Path(exists=True, dir_okay=False))
+@click.pass_context
+def list(ctx, src):
+    """List the archive content."""
+    src_path = Path(src)
+    key_path = ctx.obj['config_path']
+    _check_keys(key_path)
+    try:
+        extract_archive(src_path, None, key_path, log=click.echo)
+    except Exception as e:
+        raise click.ClickException(f'Archive listing failed: {e}')
+
+
 def _check_keys(key_path):
     """Check if the keys have been initialized."""
     if not (key_path / SECRET_KEY).is_file():

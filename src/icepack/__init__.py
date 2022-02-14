@@ -226,16 +226,18 @@ def create_archive(
 
 
 def extract_archive(src_path, dst_path, key_path, log=lambda msg: None):
-    """Extract the archive at src_path to dst_path."""
+    """Extract the archive at src_path to dst_path, or list the content."""
     src_path = src_path.resolve()
-    dst_path = dst_path.resolve()
-    if not dst_path.is_dir():
-        raise Exception(f'Invalid destination: {dst_path}')
+    if dst_path:
+        dst_path = dst_path.resolve()
+        if not dst_path.is_dir():
+            raise Exception(f'Invalid destination: {dst_path}')
     archive = Icepack(src_path, key_path)
     try:
         for entry in archive.metadata['entries']:
             log(entry['name'])
-            archive.extract_entry(entry, dst_path)
+            if dst_path:
+                archive.extract_entry(entry, dst_path)
     finally:
         archive.close()
 
