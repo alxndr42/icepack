@@ -92,7 +92,8 @@ class Age():
             result = subprocess.run(
                 ['age', '--version'],
                 capture_output=True,
-                text=True)
+                text=True,
+                timeout=5)
             if result.returncode == 0:
                 age_version = result.stdout.strip()
         age_keygen = bool(which('age-keygen'))
@@ -152,6 +153,7 @@ class SSH():
                 '-f', secret_key,
                 '-q'
             ],
+            timeout=5,
             check=True)
         public_key = (key_path / PUBLIC_KEY).read_text()
         allowed_signers = f'{NAME} {public_key}'
@@ -199,7 +201,8 @@ class SSH():
             result = subprocess.run(
                 ['ssh', '-V'],
                 capture_output=True,
-                text=True)
+                text=True,
+                timeout=5)
             if result.returncode == 0:
                 ssh_version = result.stderr.strip()
                 ssh_version = ssh_version.split(' ')[0]

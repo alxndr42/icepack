@@ -32,7 +32,10 @@ def init(ctx):
     secret_key = key_path / SECRET_KEY
     if secret_key.is_file():
         raise click.ClickException(f'{secret_key} already exists.')
-    SSH.keygen(key_path)
+    try:
+        SSH.keygen(key_path)
+    except Exception:
+        raise click.ClickException('Failed to initialize the keys.')
     click.echo(f'The keys have been initialized in {key_path}')
     click.echo('Make sure to protect and backup this directory!')
 

@@ -74,7 +74,10 @@ class Icepack():
                 with bz2.open(bz2_path, 'wb') as bz2_file:
                     copyfileobj(src, bz2_file, _BUFFER_SIZE)
             age_path = File.mktemp(parent=self._temp_dir)
-            Age.encrypt(bz2_path, age_path, self.metadata['entry_key'])
+            try:
+                Age.encrypt(bz2_path, age_path, self.metadata['entry_key'])
+            except Exception:
+                raise Exception('Failed to encrypt entry.')
             bz2_path.unlink()
             entry['stored_size'] = age_path.stat().st_size
             entry['stored_checksum'] = File.sha256(age_path)
@@ -112,7 +115,10 @@ class Icepack():
         if File.sha256(age_path) != entry['stored_checksum']:
             raise InvalidArchiveError('Incorrect checksum.')
         bz2_path = File.mktemp(parent=self._temp_dir)
-        Age.decrypt(age_path, bz2_path, self.metadata['entry_key'])
+        try:
+            Age.decrypt(age_path, bz2_path, self.metadata['entry_key'])
+        except Exception:
+            raise Exception('Failed to decrypt entry.')
         age_path.unlink()
         entry_path.parent.mkdir(parents=True, exist_ok=True)
         with open(bz2_path, 'rb') as bz2_file:
@@ -127,8 +133,14 @@ class Icepack():
         json_bytes = json.dumps(self.metadata).encode()
         bz2_bytes = bz2.compress(json_bytes)
         meta_path = File.mktemp(parent=self._temp_dir)
-        Age.encrypt_bytes(bz2_bytes, meta_path, self._recipients)
-        sig_path = SSH.sign(meta_path, self.secret_key)
+        try:
+            Age.encrypt_bytes(bz2_bytes, meta_path, self._recipients)
+        except Exception:
+            raise Exception('Failed to encrypt metadata.')
+        try:
+            sig_path = SSH.sign(meta_path, self.secret_key)
+        except Exception:
+            raise Exception('Failed to sign metadata.')
         self._zipfile.add_metadata(meta_path, sig_path)
         meta_path.unlink()
         sig_path.unlink()
@@ -136,8 +148,14 @@ class Icepack():
     def _load_metadata(self):
         """Extract and validate the metadata."""
         meta_path, sig_path = self._zipfile.extract_metadata()
-        SSH.verify(meta_path, sig_path, self.allowed_signers)
-        bz2_bytes = Age.decrypt_bytes(meta_path, self.secret_key)
+        try:
+            SSH.verify(meta_path, sig_path, self.allowed_signers)
+        except Exception:
+            raise Exception('Failed to verify metadata signature.')
+        try:
+            bz2_bytes = Age.decrypt_bytes(meta_path, self.secret_key)
+        except Exception:
+            raise Exception('Failed to decrypt metadata.')
         json_bytes = bz2.decompress(bz2_bytes)
         metadata = json.loads(json_bytes)
         self._validate_metadata(metadata)
