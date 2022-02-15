@@ -258,11 +258,15 @@ class Zip():
             with open(data_path, 'rb') as src:
                 copyfileobj(src, dst, _BUFFER_SIZE)
 
-    def close(self):
+    def close(self, silent=False):
         """Close the Zip archive and delete all temporary files."""
-        self._zipfile.close()
         rmtree(self._temp_dir, ignore_errors=True)
-        if 'metadata' not in self._entries:
+        try:
+            self._zipfile.close()
+        except Exception:
+            if not silent:
+                raise
+        if 'metadata' not in self._entries and not silent:
             raise InvalidArchiveError(f'No metadata file added.')
 
     def extract_entry(self, key):

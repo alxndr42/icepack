@@ -14,7 +14,6 @@ _VALID_COMPRESSION = ['bz2']
 _VALID_ENCRYPTION = ['age']
 
 
-# TODO Add context manager functions
 class Icepack():
     """icepack archive manager."""
 
@@ -56,6 +55,15 @@ class Icepack():
             if extra_recipients is not None:
                 self._recipients.extend(extra_recipients)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        failed = exc_type is not None
+        self.close(silent=failed)
+        if failed and self._mode == 'w':
+            self.path.unlink()
+
     def add_entry(self, source, base_path):
         """Add source to the archive."""
         if self._mode != 'w':
@@ -88,12 +96,29 @@ class Icepack():
         self.metadata['entries'].append(entry)
         self._index += 1
 
-    def close(self):
+    def add_metadata(self):
+        """Add the metadata file."""
+        if self._mode != 'w':
+            raise Exception('Not in write mode.')
+        json_bytes = json.dumps(self.metadata).encode()
+        bz2_bytes = bz2.compress(json_bytes)
+        meta_path = File.mktemp(parent=self._temp_dir)
+        try:
+            Age.encrypt_bytes(bz2_bytes, meta_path, self._recipients)
+        except Exception:
+            raise Exception('Failed to encrypt metadata.')
+        try:
+            sig_path = SSH.sign(meta_path, self.secret_key)
+        except Exception:
+            raise Exception('Failed to sign metadata.')
+        self._zipfile.add_metadata(meta_path, sig_path)
+        meta_path.unlink()
+        sig_path.unlink()
+
+    def close(self, silent=False):
         """Close the archive and delete all temporary files."""
-        if self._mode == 'w':
-            self._add_metadata()
-        self._zipfile.close()
         rmtree(self._temp_dir, ignore_errors=True)
+        self._zipfile.close(silent=silent)
 
     def extract_entry(self, entry, base_path):
         """Extract entry to base_path."""
@@ -127,23 +152,6 @@ class Icepack():
                     copyfileobj(src, dst, _BUFFER_SIZE)
         bz2_path.unlink()
         return entry_path
-
-    def _add_metadata(self):
-        """Add the metadata file."""
-        json_bytes = json.dumps(self.metadata).encode()
-        bz2_bytes = bz2.compress(json_bytes)
-        meta_path = File.mktemp(parent=self._temp_dir)
-        try:
-            Age.encrypt_bytes(bz2_bytes, meta_path, self._recipients)
-        except Exception:
-            raise Exception('Failed to encrypt metadata.')
-        try:
-            sig_path = SSH.sign(meta_path, self.secret_key)
-        except Exception:
-            raise Exception('Failed to sign metadata.')
-        self._zipfile.add_metadata(meta_path, sig_path)
-        meta_path.unlink()
-        sig_path.unlink()
 
     def _load_metadata(self):
         """Extract and validate the metadata."""
@@ -230,17 +238,11 @@ def create_archive(
     else:
         raise Exception(f'Invalid source: {src_path}')
     base = src_path.parent
-    archive = Icepack(
-        dst_path,
-        key_path,
-        mode='w',
-        extra_recipients=extra_recipients)
-    try:
+    with Icepack(dst_path, key_path, mode='w', extra_recipients=extra_recipients) as archive:  # noqa
         for source in sources:
             log(source.relative_to(base))
             archive.add_entry(source, base)
-    finally:
-        archive.close()
+        archive.add_metadata()
 
 
 def extract_archive(src_path, dst_path, key_path, log=lambda msg: None):
@@ -250,14 +252,11 @@ def extract_archive(src_path, dst_path, key_path, log=lambda msg: None):
         dst_path = dst_path.resolve()
         if not dst_path.is_dir():
             raise Exception(f'Invalid destination: {dst_path}')
-    archive = Icepack(src_path, key_path)
-    try:
+    with Icepack(src_path, key_path) as archive:
         for entry in archive.metadata['entries']:
             log(entry['name'])
             if dst_path:
                 archive.extract_entry(entry, dst_path)
-    finally:
-        archive.close()
 
 
 def _source_key(path):
