@@ -9,6 +9,7 @@ from icepack.meta import SECRET_KEY, PUBLIC_KEY, ALLOWED_SIGNERS
 
 
 _BUFFER_SIZE = 64 * 1024
+_MAX_ATTEMPTS = 3
 _VALID_CHECKSUM = ['sha256']
 _VALID_COMPRESSION = ['bz2']
 _VALID_ENCRYPTION = ['age']
@@ -107,10 +108,13 @@ class Icepack():
             Age.encrypt_bytes(bz2_bytes, meta_path, self._recipients)
         except Exception:
             raise Exception('Failed to encrypt metadata.')
-        try:
-            sig_path = SSH.sign(meta_path, self.secret_key)
-        except Exception:
-            raise Exception('Failed to sign metadata.')
+        for attempt in range(0, _MAX_ATTEMPTS):
+            try:
+                sig_path = SSH.sign(meta_path, self.secret_key)
+                break
+            except Exception:
+                if attempt == _MAX_ATTEMPTS - 1:
+                    raise Exception('Failed to sign metadata.')
         self._zipfile.add_metadata(meta_path, sig_path)
         meta_path.unlink()
         sig_path.unlink()
@@ -160,10 +164,13 @@ class Icepack():
             SSH.verify(meta_path, sig_path, self.allowed_signers)
         except Exception:
             raise Exception('Failed to verify metadata signature.')
-        try:
-            bz2_bytes = Age.decrypt_bytes(meta_path, self.secret_key)
-        except Exception:
-            raise Exception('Failed to decrypt metadata.')
+        for attempt in range(0, _MAX_ATTEMPTS):
+            try:
+                bz2_bytes = Age.decrypt_bytes(meta_path, self.secret_key)
+                break
+            except Exception:
+                if attempt == _MAX_ATTEMPTS - 1:
+                    raise Exception('Failed to decrypt metadata.')
         json_bytes = bz2.decompress(bz2_bytes)
         metadata = json.loads(json_bytes)
         self._validate_metadata(metadata)
