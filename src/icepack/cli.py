@@ -57,12 +57,15 @@ def create(ctx, src, dst, recipient):
     dst_path = Path(dst)
     key_path = ctx.obj['config_path']
     _check_keys(key_path)
+    signers = SSH.get_signers(key_path)
+    aliases = {alias: key for key, alias in signers if alias is not None}
+    recipients = [aliases[r] if r in aliases else r for r in recipient]
     try:
         create_archive(
             src_path,
             dst_path,
             key_path,
-            extra_recipients=recipient,
+            extra_recipients=recipients,
             log=click.echo)
     except Exception as e:
         raise click.ClickException(f'Archive creation failed: {e}')

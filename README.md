@@ -48,7 +48,7 @@ Enter passphrase: *****
 ```
 
 You can allow additional recipients to extract the archive by passing their
-public keys via the `--recipient` option.
+public keys or aliases via the `--recipient` option.
 
 ### Extract an archive
 
