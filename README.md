@@ -23,7 +23,7 @@ $ pip install icepack
 
 [pipx]: https://pypa.github.io/pipx/
 
-## Usage
+## Basic Usage
 
 ### Initialize the keys
 
@@ -72,3 +72,37 @@ icepack 0.1.0
 ✅ ssh found. (Version: OpenSSH_8.2p1)
 ✅ ssh-keygen found.
 ```
+
+## Signer Management
+
+To extract archives created by other parties, their public keys need to be
+added to the list of allowed signers. The `signer` command supports this.
+
+### List allowed signers
+
+```
+$ icepack signer list
+ssh-ed25519 AAAAC3NzaC... (Your Key)
+ssh-ed25519 AAAAC3NzaC... (Bob)
+```
+
+### Add an allowed signer
+
+```
+$ icepack signer add "ssh-ed25519 AAAAC3NzaC..." --alias Alice
+$ icepack signer list
+ssh-ed25519 AAAAC3NzaC... (Your Key)
+ssh-ed25519 AAAAC3NzaC... (Bob)
+ssh-ed25519 AAAAC3NzaC... (Alice)
+```
+
+### Remove an allowed signer
+
+```
+$ icepack signer remove Bob
+$ icepack signer list
+ssh-ed25519 AAAAC3NzaC... (Your Key)
+ssh-ed25519 AAAAC3NzaC... (Alice)
+```
+
+When removing a key, you can specify a key or its alias.

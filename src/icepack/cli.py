@@ -4,7 +4,7 @@ import click
 
 from icepack import create_archive, extract_archive
 from icepack.helper import Age, SSH
-from icepack.meta import NAME, VERSION, SECRET_KEY
+from icepack.meta import NAME, VERSION, SECRET_KEY, PUBLIC_KEY
 
 
 @click.group()
@@ -130,6 +130,68 @@ def version(ctx, dependencies):
         click.echo(f'✅ ssh-keygen found.')
     else:
         click.echo(f'❌ ssh-keygen not found.')
+
+
+@icepack.group()
+@click.pass_context
+def signer(ctx):
+    """Manage allowed signers."""
+    pass
+
+
+@signer.command()
+@click.pass_context
+def list(ctx):
+    """List allowed signers."""
+    key_path = ctx.obj['config_path']
+    own_path = key_path / PUBLIC_KEY
+    own_key = own_path.read_text().strip()
+    for key, alias in SSH.get_signers(key_path):
+        if key == own_key:
+            click.echo(f'{key} (Your Key)')
+        elif alias:
+            click.echo(f'{key} ({alias})')
+        else:
+            click.echo(f'{key}')
+
+
+@signer.command()
+@click.argument('key')
+@click.option('--alias', '-a', help='Key alias.')
+@click.pass_context
+def add(ctx, key, alias):
+    """Add an allowed signer."""
+    key_path = ctx.obj['config_path']
+    if not key.startswith('ssh-'):
+        raise click.ClickException('Invalid key.')
+    if alias and (' ' in alias or alias == NAME):
+        raise click.ClickException('Invalid alias.')
+    signers = SSH.get_signers(key_path)
+    keys = {key for key, alias in signers}
+    aliases = {alias for key, alias in signers if alias is not None}
+    if key in keys:
+        raise click.ClickException('Key already exists.')
+    if alias in aliases:
+        raise click.ClickException('Alias already exists.')
+    SSH.update_signers(key_path, append=(key, alias))
+
+
+@signer.command()
+@click.argument('key_or_alias')
+@click.pass_context
+def remove(ctx, key_or_alias):
+    """Remove an allowed signer."""
+    key_path = ctx.obj['config_path']
+    own_path = key_path / PUBLIC_KEY
+    own_key = own_path.read_text().strip()
+    if key_or_alias == own_key:
+        raise click.ClickException('Cannot remove your own key.')
+    signers = SSH.get_signers(key_path)
+    keys = {key for key, alias in signers}
+    aliases = {alias for key, alias in signers if alias is not None}
+    if not (key_or_alias in keys or key_or_alias in aliases):
+        raise click.ClickException('Key or alias not found.')
+    SSH.update_signers(key_path, remove=key_or_alias)
 
 
 def _check_keys(key_path):

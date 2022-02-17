@@ -209,6 +209,63 @@ class SSH():
         ssh_keygen = bool(which('ssh-keygen'))
         return ssh_version, ssh_keygen
 
+    @staticmethod
+    def get_signers(key_path):
+        """Return a list of (key, alias) tuples."""
+        result = []
+        with open(key_path / ALLOWED_SIGNERS) as file:
+            while (line := file.readline()):
+                key, alias = SSH._parse_signer(line)
+                if key is not None:
+                    result.append((key, alias))
+        return result
+
+    @staticmethod
+    def update_signers(key_path, append=None, remove=None):
+        """Append a (key, alias) or remove a key or alias."""
+        signers_path = key_path / ALLOWED_SIGNERS
+        tmp_path = File.mktemp()
+        with open(signers_path) as file:
+            with open(tmp_path, 'w') as tmp_file:
+                while (line := file.readline()):
+                    line = line.strip()
+                    key, alias = SSH._parse_signer(line)
+                    if remove and (key == remove or alias == remove):
+                        continue
+                    tmp_file.write(line)
+                    tmp_file.write('\n')
+                if append:
+                    if append[1]:
+                        principals = f'{NAME},{append[1]}'
+                    else:
+                        principals = NAME
+                    tmp_file.write(f'{principals} {append[0]}')
+                    tmp_file.write('\n')
+        tmp_path.rename(signers_path)
+
+    @staticmethod
+    def _parse_signer(line):
+        """Return a (key, alias) tuple, or (None, None)."""
+        empty = (None, None)
+        line = line.strip()
+        if not line or line.startswith('#'):
+            return empty
+        parts = line.split(' ', maxsplit=1)
+        if len(parts) != 2:
+            return empty
+        if not parts[1].startswith('ssh-'):
+            return empty
+        principals = parts[0].split(',')
+        if len(principals) > 2:
+            return empty
+        if NAME not in principals:
+            return empty
+        principals.remove(NAME)
+        if principals:
+            return (parts[1], principals[0])
+        else:
+            return (parts[1], None)
+
 
 class Zip():
     """Zip archive helper."""
