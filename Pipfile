@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 click = "*"
+pydantic = "*"
 
 [dev-packages]
 build = "*"
