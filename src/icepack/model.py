@@ -35,7 +35,6 @@ class DirEntry(BaseModel):
     """Directory entry metadata."""
     entry_type: str = EntryType.DIR
     name: str
-    stored_name: str
 
     @validator('entry_type')
     def correct_type(cls, v):

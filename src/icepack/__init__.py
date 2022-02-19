@@ -69,10 +69,8 @@ class Icepack():
         if self._mode != 'w':
             raise Exception('Not in write mode.')
         name = str(source.relative_to(base_path))
-        stored_name = '{:08}'.format(self._index)
         if source.is_dir():
-            entry = DirEntry(name=name, stored_name=stored_name)
-            self._zipfile.add_entry(stored_name, None)
+            entry = DirEntry(name=name)
         else:
             bz2_path = File.mktemp(parent=self._temp_dir)
             with open(source, 'rb') as src:
@@ -84,6 +82,7 @@ class Icepack():
             except Exception:
                 raise Exception('Failed to encrypt entry.')
             bz2_path.unlink()
+            stored_name = '{:08}'.format(self._index)
             entry = FileEntry(
                 name=name,
                 size=source.stat().st_size,
@@ -92,9 +91,9 @@ class Icepack():
                 stored_size=age_path.stat().st_size,
                 stored_checksum=File.sha256(age_path))
             self._zipfile.add_entry(stored_name, age_path)
+            self._index += 1
             age_path.unlink()
         self.metadata.entries.append(entry)
-        self._index += 1
 
     def add_metadata(self):
         """Add the metadata file."""
