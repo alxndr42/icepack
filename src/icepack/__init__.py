@@ -47,9 +47,9 @@ class Icepack():
             self._zipfile = Zip(self.path, mode='w')
             self.metadata = Metadata(
                 archive_name=path.name,
-                checksum_function=Checksum.SHA256,
+                checksum_type=Checksum.SHA256,
                 encryption=Encryption.AGE,
-                entry_key=Age.keygen()[0])
+                encryption_key=Age.keygen()[0])
             self._index = 1
             self._recipients = [self.public_key.read_text()]
             if extra_recipients is not None:
@@ -68,11 +68,11 @@ class Icepack():
         """Add source to the archive."""
         if self._mode != 'w':
             raise Exception('Not in write mode.')
-        key = '{:08}'.format(self._index)
-        name = self._archive_name(source, base_path)
+        name = str(source.relative_to(base_path))
+        stored_name = '{:08}'.format(self._index)
         if source.is_dir():
-            entry = DirEntry(key=key, name=name)
-            self._zipfile.add_entry(key, None)
+            entry = DirEntry(name=name, stored_name=stored_name)
+            self._zipfile.add_entry(stored_name, None)
         else:
             bz2_path = File.mktemp(parent=self._temp_dir)
             with open(source, 'rb') as src:
@@ -80,18 +80,18 @@ class Icepack():
                     copyfileobj(src, bz2_file, _BUFFER_SIZE)
             age_path = File.mktemp(parent=self._temp_dir)
             try:
-                Age.encrypt(bz2_path, age_path, self.metadata.entry_key)
+                Age.encrypt(bz2_path, age_path, self.metadata.encryption_key)
             except Exception:
                 raise Exception('Failed to encrypt entry.')
             bz2_path.unlink()
             entry = FileEntry(
-                key=key,
                 name=name,
                 size=source.stat().st_size,
                 compression=Compression.BZ2,
+                stored_name=stored_name,
                 stored_size=age_path.stat().st_size,
                 stored_checksum=File.sha256(age_path))
-            self._zipfile.add_entry(key, age_path)
+            self._zipfile.add_entry(stored_name, age_path)
             age_path.unlink()
         self.metadata.entries.append(entry)
         self._index += 1
@@ -135,7 +135,7 @@ class Icepack():
         if entry.is_dir():
             entry_path.mkdir(parents=True, exist_ok=True)
             return entry_path
-        age_path = self._zipfile.extract_entry(entry.key)
+        age_path = self._zipfile.extract_entry(entry.stored_name)
         age_stat = age_path.stat()
         if age_stat.st_size != entry.stored_size:
             raise InvalidArchiveError('Incorrect file size.')
@@ -143,7 +143,7 @@ class Icepack():
             raise InvalidArchiveError('Incorrect checksum.')
         bz2_path = File.mktemp(parent=self._temp_dir)
         try:
-            Age.decrypt(age_path, bz2_path, self.metadata.entry_key)
+            Age.decrypt(age_path, bz2_path, self.metadata.encryption_key)
         except Exception:
             raise Exception('Failed to decrypt entry.')
         age_path.unlink()
@@ -180,14 +180,6 @@ class Icepack():
                     raise InvalidArchiveError('Invalid metadata.')
         meta_path.unlink()
         sig_path.unlink()
-
-    @staticmethod
-    def _archive_name(source, base_path):
-        """Return the in-archive filename for source."""
-        result = str(source.relative_to(base_path))
-        if source.is_dir():
-            result += '/'
-        return result
 
 
 def create_archive(

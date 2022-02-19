@@ -25,15 +25,22 @@ class Encryption(str, Enum):
     AGE = 'age'
 
 
+class EntryType(str, Enum):
+    """Supported entry types."""
+    DIR = 'dir'
+    FILE = 'file'
+
+
 class DirEntry(BaseModel):
     """Directory entry metadata."""
-    key: str
+    entry_type: str = EntryType.DIR
     name: str
+    stored_name: str
 
-    @validator('name')
-    def trailing_slash(cls, v):
-        if not v.endswith('/'):
-            raise ValueError('Name must end with a slash.')
+    @validator('entry_type')
+    def correct_type(cls, v):
+        if v != EntryType.DIR:
+            raise ValueError('Incorrect entry type.')
         return v
 
     def is_dir(self):
@@ -42,17 +49,18 @@ class DirEntry(BaseModel):
 
 class FileEntry(BaseModel):
     """File entry metadata."""
-    key: str
+    entry_type: str = EntryType.FILE
     name: str
     size: int
     compression: str
+    stored_name: str
     stored_size: int
     stored_checksum: str
 
-    @validator('name')
-    def no_trailing_slash(cls, v):
-        if v.endswith('/'):
-            raise ValueError('Name must not end with a slash.')
+    @validator('entry_type')
+    def correct_type(cls, v):
+        if v != EntryType.FILE:
+            raise ValueError('Incorrect entry type.')
         return v
 
     @validator('compression')
@@ -67,12 +75,12 @@ class FileEntry(BaseModel):
 class Metadata(BaseModel):
     """Archive metadata."""
     archive_name: str
-    checksum_function: str
+    checksum_type: str
     encryption: str
-    entry_key: str
+    encryption_key: str
     entries: List[Union[FileEntry, DirEntry]] = []
 
-    @validator('checksum_function')
+    @validator('checksum_type')
     def supported_checksum(cls, v, field):
         check_enum_value(Checksum, v, field.name)
         return v
