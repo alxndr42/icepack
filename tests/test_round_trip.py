@@ -3,14 +3,11 @@ from click.testing import CliRunner
 from icepack.cli import icepack
 from icepack.helper import File
 
-from helper import key_path
+from helper import dst_path, key_path, src_path, zip_path
 
 
-def test_round_trip_directory(shared_datadir, key_path):
+def test_round_trip_directory(src_path, dst_path, zip_path, key_path):
     """Test creation and extraction of a directory."""
-    src_path = shared_datadir / 'src'
-    dst_path = shared_datadir / 'dst'
-    zip_path = shared_datadir / 'dst' / 'test.zip'
     # Create archive
     args = ['-c', str(key_path), 'create', str(src_path), str(zip_path)]
     runner = CliRunner()
@@ -23,17 +20,15 @@ def test_round_trip_directory(shared_datadir, key_path):
     assert result.exit_code == 0
     # Compare directories
     for src in File.children(src_path):
-        dst = dst_path / src.relative_to(shared_datadir)
+        dst = dst_path / src.relative_to(src_path.parent)
         compare_paths(src, dst)
 
 
-def test_round_trip_file(shared_datadir, key_path):
+def test_round_trip_file(src_path, dst_path, zip_path, key_path):
     """Test creation and extraction of a file."""
-    src_path = shared_datadir / 'src' / 'foo'
-    dst_path = shared_datadir / 'dst'
-    zip_path = shared_datadir / 'dst' / 'test.zip'
+    file_path = src_path / 'foo'
     # Create archive
-    args = ['-c', str(key_path), 'create', str(src_path), str(zip_path)]
+    args = ['-c', str(key_path), 'create', str(file_path), str(zip_path)]
     runner = CliRunner()
     result = runner.invoke(icepack, args)
     assert result.exit_code == 0
@@ -43,7 +38,28 @@ def test_round_trip_file(shared_datadir, key_path):
     result = runner.invoke(icepack, args)
     assert result.exit_code == 0
     # Compare files
-    compare_paths(src_path, dst_path / 'foo')
+    compare_paths(file_path, dst_path / 'foo')
+
+
+def test_without_compression(src_path, dst_path, zip_path, key_path):
+    """Test with "none" compression."""
+    # Create archive
+    args = [
+        '-c', str(key_path),
+        'create', '--compression', 'none',
+        str(src_path), str(zip_path)]
+    runner = CliRunner()
+    result = runner.invoke(icepack, args)
+    assert result.exit_code == 0
+    # Extract archive
+    args = ['-c', str(key_path), 'extract', str(zip_path), str(dst_path)]
+    runner = CliRunner()
+    result = runner.invoke(icepack, args)
+    assert result.exit_code == 0
+    # Compare directories
+    for src in File.children(src_path):
+        dst = dst_path / src.relative_to(src_path.parent)
+        compare_paths(src, dst)
 
 
 def compare_paths(src, dst):
