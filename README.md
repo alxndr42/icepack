@@ -25,6 +25,8 @@ $ pip install icepack
 
 ## Basic Usage
 
+You can get more information for each command by using the `--help` option.
+
 ### Initialize the keys
 
 ```
@@ -50,12 +52,15 @@ Enter passphrase: *****
 You can allow additional recipients to extract the archive by passing their
 public keys or aliases via the `--recipient` option.
 
+You can choose between `bz2` (the default) and no compression by using the
+`--compression` option.
+
 ### Extract an archive
 
 ```
 $ icepack extract $HOME/my-documents.zip $HOME/
 Enter passphrase for "/home/username/.config/icepack/identity": *****
-Documents/Cat Pictures/
+Documents/Cat Pictures
 Documents/Cat Pictures/awww.jpg
 Documents/Cat Pictures/grumpy.jpg
 Documents/Cat Pictures/socute.jpg
@@ -105,4 +110,4 @@ ssh-ed25519 AAAAC3NzaC... (Your Key)
 ssh-ed25519 AAAAC3NzaC... (Alice)
 ```
 
-When removing a key, you can specify a key or its alias.
+When removing a key, you can specify the key or its alias.
