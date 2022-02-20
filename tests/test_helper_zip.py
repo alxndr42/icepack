@@ -5,16 +5,12 @@ import pytest
 from icepack.error import InvalidArchiveError
 from icepack.helper import File, Zip
 
-
-@pytest.fixture
-def src_path(shared_datadir):
-    return shared_datadir / 'src'
+from helper import src_path, zip_path
 
 
 @pytest.fixture
-def zip_file(shared_datadir):
-    path = shared_datadir / 'dst' / 'test.zip'
-    return Zip(path, mode='w')
+def zip_file(zip_path):
+    return Zip(zip_path, mode='w')
 
 
 class TestWriteMode:

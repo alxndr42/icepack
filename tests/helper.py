@@ -8,6 +8,21 @@ SECRET_KEY = 'LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWl
 
 
 @pytest.fixture
+def src_path(shared_datadir):
+    return shared_datadir / 'src'
+
+
+@pytest.fixture
+def dst_path(shared_datadir):
+    return shared_datadir / 'dst'
+
+
+@pytest.fixture
+def zip_path(shared_datadir):
+    return shared_datadir / 'dst' / 'test.zip'
+
+
+@pytest.fixture
 def key_path(shared_datadir):
     """Deobfuscate the secret key and return the key directory Path."""
     path = shared_datadir / 'keys'

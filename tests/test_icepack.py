@@ -3,25 +3,18 @@ import pytest
 from icepack import IcepackWriter
 from icepack.error import InvalidArchiveError
 
-
-@pytest.fixture
-def src_path(shared_datadir):
-    return shared_datadir / 'src'
+from helper import key_path, src_path, zip_path
 
 
 @pytest.fixture
-def archive_w(shared_datadir):
-    zip_path = shared_datadir / 'dst' / 'test.zip'
-    key_path = shared_datadir / 'keys'
+def archive_w(zip_path, key_path):
     return IcepackWriter(zip_path, key_path)
 
 
 class TestWriteMode:
     """Test write operations."""
 
-    def test_with_context(self, shared_datadir, src_path):
-        zip_path = shared_datadir / 'dst' / 'test.zip'
-        key_path = shared_datadir / 'keys'
+    def test_with_context(self, zip_path, key_path, src_path):
         with IcepackWriter(zip_path, key_path) as archive:
             archive.add_entry(src_path / 'foo', src_path)
             archive.add_metadata()
