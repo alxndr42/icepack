@@ -1,4 +1,6 @@
-from icepack import create_archive, extract_archive
+from click.testing import CliRunner
+
+from icepack.cli import icepack
 from icepack.helper import File
 
 from helper import key_path
@@ -9,8 +11,17 @@ def test_round_trip_directory(shared_datadir, key_path):
     src_path = shared_datadir / 'src'
     dst_path = shared_datadir / 'dst'
     zip_path = shared_datadir / 'dst' / 'test.zip'
-    create_archive(src_path, zip_path, key_path)
-    extract_archive(zip_path, dst_path, key_path)
+    # Create archive
+    args = ['-c', str(key_path), 'create', str(src_path), str(zip_path)]
+    runner = CliRunner()
+    result = runner.invoke(icepack, args)
+    assert result.exit_code == 0
+    # Extract archive
+    args = ['-c', str(key_path), 'extract', str(zip_path), str(dst_path)]
+    runner = CliRunner()
+    result = runner.invoke(icepack, args)
+    assert result.exit_code == 0
+    # Compare directories
     for src in File.children(src_path):
         dst = dst_path / src.relative_to(shared_datadir)
         compare_paths(src, dst)
@@ -21,8 +32,17 @@ def test_round_trip_file(shared_datadir, key_path):
     src_path = shared_datadir / 'src' / 'foo'
     dst_path = shared_datadir / 'dst'
     zip_path = shared_datadir / 'dst' / 'test.zip'
-    create_archive(src_path, zip_path, key_path)
-    extract_archive(zip_path, dst_path, key_path)
+    # Create archive
+    args = ['-c', str(key_path), 'create', str(src_path), str(zip_path)]
+    runner = CliRunner()
+    result = runner.invoke(icepack, args)
+    assert result.exit_code == 0
+    # Extract archive
+    args = ['-c', str(key_path), 'extract', str(zip_path), str(dst_path)]
+    runner = CliRunner()
+    result = runner.invoke(icepack, args)
+    assert result.exit_code == 0
+    # Compare files
     compare_paths(src_path, dst_path / 'foo')
 
 
