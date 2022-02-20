@@ -65,7 +65,7 @@ class IcepackReader(IcepackBase):
         self.close(silent=failed)
 
     def extract_entry(self, entry, base_path):
-        """Extract entry to base_path."""
+        """Extract entry to base_path and return its Path."""
         if entry not in self.metadata.entries:
             raise Exception('Invalid entry.')
         dst_path = base_path.joinpath(entry.name).resolve()
@@ -80,19 +80,24 @@ class IcepackReader(IcepackBase):
             raise InvalidArchiveError('Incorrect file size.')
         if File.sha256(age_path) != entry.stored_checksum:
             raise InvalidArchiveError('Incorrect checksum.')
-        tmp_path = self._mktemp()
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
+        if entry.compression == Compression.NONE:
+            self._decrypt_path(age_path, dst_path)
+            age_path.unlink()
+        else:
+            tmp_path = self._mktemp()
+            self._decrypt_path(age_path, tmp_path)
+            age_path.unlink()
+            self._uncompress_path(tmp_path, dst_path)
+            tmp_path.unlink()
+        return dst_path
+
+    def _decrypt_path(self, src_path, dst_path):
+        """Decrypt src_path to dst_path."""
         try:
-            Age.decrypt(age_path, tmp_path, self.metadata.encryption_key)
+            Age.decrypt(src_path, dst_path, self.metadata.encryption_key)
         except Exception:
             raise Exception('Failed to decrypt entry.')
-        age_path.unlink()
-        dst_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(tmp_path, 'rb') as tmp_file:
-            with bz2.open(tmp_file, 'rb') as src:
-                with open(dst_path, 'wb') as dst:
-                    copyfileobj(src, dst, _BUFFER_SIZE)
-        tmp_path.unlink()
-        return dst_path
 
     def _load_metadata(self):
         """Extract and validate the metadata."""
@@ -120,11 +125,23 @@ class IcepackReader(IcepackBase):
         meta_path.unlink()
         sig_path.unlink()
 
+    def _uncompress_path(self, src_path, dst_path):
+        """Uncompressed src_path to dst_path."""
+        with open(src_path, 'rb') as src_file:
+            with bz2.open(src_file, 'rb') as src:
+                with open(dst_path, 'wb') as dst:
+                    copyfileobj(src, dst, _BUFFER_SIZE)
+
 
 class IcepackWriter(IcepackBase):
     """icepack writer."""
 
-    def __init__(self, archive_path, key_path, extra_recipients=None):
+    def __init__(
+            self,
+            archive_path,
+            key_path,
+            compression=Compression.BZ2,
+            extra_recipients=None):
         super().__init__(archive_path, key_path)
         if self.archive_path.is_dir():
             raise Exception(f'Invalid archive path: {self.archive_path}')
@@ -135,6 +152,7 @@ class IcepackWriter(IcepackBase):
             encryption=Encryption.AGE,
             encryption_key=Age.keygen()[0])
         self._index = 1
+        self._compression = compression
         self._recipients = [self.public_key.read_text().strip()]
         if extra_recipients is not None:
             self._recipients.extend(extra_recipients)
@@ -154,21 +172,17 @@ class IcepackWriter(IcepackBase):
         if source.is_dir():
             entry = DirEntry(name=name)
         else:
-            tmp_path = self._mktemp()
-            with open(source, 'rb') as src:
-                with bz2.open(tmp_path, 'wb') as tmp_file:
-                    copyfileobj(src, tmp_file, _BUFFER_SIZE)
-            age_path = self._mktemp()
-            try:
-                Age.encrypt(tmp_path, age_path, self.metadata.encryption_key)
-            except Exception:
-                raise Exception('Failed to encrypt entry.')
-            tmp_path.unlink()
+            if self._compression == Compression.NONE:
+                age_path = self._encrypt_path(source)
+            else:
+                tmp_path = self._compress_path(source)
+                age_path = self._encrypt_path(tmp_path)
+                tmp_path.unlink()
             stored_name = '{:08}'.format(self._index)
             entry = FileEntry(
                 name=name,
                 size=source.stat().st_size,
-                compression=Compression.BZ2,
+                compression=self._compression,
                 stored_name=stored_name,
                 stored_size=age_path.stat().st_size,
                 stored_checksum=File.sha256(age_path))
@@ -197,11 +211,29 @@ class IcepackWriter(IcepackBase):
         meta_path.unlink()
         sig_path.unlink()
 
+    def _compress_path(self, src_path):
+        """Return the temporary Path of the compressed src_path."""
+        tmp_path = self._mktemp()
+        with open(src_path, 'rb') as src:
+            with bz2.open(tmp_path, 'wb') as dst:
+                copyfileobj(src, dst, _BUFFER_SIZE)
+        return tmp_path
+
+    def _encrypt_path(self, src_path):
+        """Return the temporary Path of the encrypted src_path."""
+        tmp_path = self._mktemp()
+        try:
+            Age.encrypt(src_path, tmp_path, self.metadata.encryption_key)
+        except Exception:
+            raise Exception('Failed to encrypt entry.')
+        return tmp_path
+
 
 def create_archive(
         src_path,
         dst_path,
         key_path,
+        compression=Compression.BZ2,
         extra_recipients=None,
         log=lambda msg: None):
     """Create an archive at dst_path from src_path."""
@@ -215,7 +247,7 @@ def create_archive(
     else:
         raise Exception(f'Invalid source: {src_path}')
     base = src_path.parent
-    with IcepackWriter(dst_path, key_path, extra_recipients=extra_recipients) as archive:  # noqa
+    with IcepackWriter(dst_path, key_path, compression=compression, extra_recipients=extra_recipients) as archive:  # noqa
         for source in sources:
             log(source.relative_to(base))
             archive.add_entry(source, base)

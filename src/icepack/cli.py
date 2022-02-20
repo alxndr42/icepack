@@ -5,6 +5,7 @@ import click
 from icepack import create_archive, extract_archive
 from icepack.helper import Age, SSH
 from icepack.meta import NAME, VERSION, SECRET_KEY, PUBLIC_KEY
+from icepack.model import Compression
 
 
 @click.group()
@@ -44,11 +45,16 @@ def init(ctx):
 @click.argument('src', type=click.Path(exists=True))
 @click.argument('dst', type=click.Path())
 @click.option(
+    '--compression', '-c',
+    help='Compression type for all entries.',
+    type=click.Choice([c.value for c in Compression]),
+    default=Compression.BZ2)
+@click.option(
     '--recipient', '-r',
     help='Allow another recipient to extract the archive.',
     multiple=True)
 @click.pass_context
-def create(ctx, src, dst, recipient):
+def create(ctx, src, dst, compression, recipient):
     """Store files in an archive.
 
     SRC must be a file or directory, DST must be the archive file.
@@ -65,6 +71,7 @@ def create(ctx, src, dst, recipient):
             src_path,
             dst_path,
             key_path,
+            compression=compression,
             extra_recipients=recipients,
             log=click.echo)
     except Exception as e:

@@ -18,6 +18,7 @@ class Checksum(str, Enum):
 class Compression(str, Enum):
     """Supported compression types."""
     BZ2 = 'bz2'
+    NONE = 'none'
 
 
 class Encryption(str, Enum):
