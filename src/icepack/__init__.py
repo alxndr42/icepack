@@ -141,7 +141,7 @@ class IcepackWriter(IcepackBase):
             archive_path,
             key_path,
             compression=Compression.BZ2,
-            extra_recipients=None):
+            recipients=None):
         super().__init__(archive_path, key_path)
         if self.archive_path.is_dir():
             raise Exception(f'Invalid archive path: {self.archive_path}')
@@ -153,9 +153,10 @@ class IcepackWriter(IcepackBase):
             encryption_key=Age.keygen()[0])
         self._index = 1
         self._compression = compression
-        self._recipients = [self.public_key.read_text().strip()]
-        if extra_recipients is not None:
-            self._recipients.extend(extra_recipients)
+        if recipients:
+            self._recipients = recipients
+        else:
+            self._recipients = [self.public_key.read_text().strip()]
 
     def __enter__(self):
         return self

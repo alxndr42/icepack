@@ -71,11 +71,17 @@ def create(ctx, src, dst, compression, recipient):
     base = src_path.parent
     key_path = ctx.obj['config_path']
     _check_keys(key_path)
+    public_key = key_path / PUBLIC_KEY
     signers = SSH.get_signers(key_path)
     aliases = {alias: key for key, alias in signers if alias is not None}
     recipients = [aliases[r] if r in aliases else r for r in recipient]
+    recipients.insert(0, public_key.read_text().strip())
+    kwargs = {
+        'compression': compression,
+        'recipients': recipients,
+    }
     try:
-        with IcepackWriter(dst_path, key_path, compression=compression, extra_recipients=recipients) as archive:  # noqa
+        with IcepackWriter(dst_path, key_path, **kwargs) as archive:
             for source in sources:
                 click.echo(source.relative_to(base))
                 archive.add_entry(source, base)
