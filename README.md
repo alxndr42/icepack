@@ -25,8 +25,6 @@ $ pip install icepack
 
 ## Basic Usage
 
-You can get more information for each command by using the `--help` option.
-
 ### Initialize the keys
 
 ```
@@ -49,11 +47,10 @@ Documents/world-domination.txt
 Enter passphrase: *****
 ```
 
-You can allow additional recipients to extract the archive by passing their
-public keys or aliases via the `--recipient` option.
-
-You can choose between `bz2` (the default) and no compression by using the
-`--compression` option.
+| Option | Description |
+| --- | --- |
+| `--compression`, `-c` | Compression for all files: `bz2` or `none` (Default: `bz2`) |
+| `--recipient`, `-r` | Allow another public key/alias to extract. |
 
 ### Extract an archive
 
@@ -78,6 +75,10 @@ icepack 0.1.0
 ✅ ssh-keygen found.
 ```
 
+| Option | Description |
+| --- | --- |
+| `--dependencies`, `-d` | Check the dependencies. |
+
 ## Signer Management
 
 To extract archives created by other parties, their public keys need to be
@@ -100,6 +101,10 @@ ssh-ed25519 AAAAC3NzaC... (Your Key)
 ssh-ed25519 AAAAC3NzaC... (Bob)
 ssh-ed25519 AAAAC3NzaC... (Alice)
 ```
+
+| Option | Description |
+| --- | --- |
+| `--alias`, `-a` | Key alias. |
 
 ### Remove an allowed signer
 

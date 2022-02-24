@@ -46,12 +46,12 @@ def init(ctx):
 @click.argument('dst', type=click.Path())
 @click.option(
     '--compression', '-c',
-    help='Compression type for all entries.',
+    help='Compression for all files.',
     type=click.Choice([c.value for c in Compression]),
     default=Compression.BZ2)
 @click.option(
     '--recipient', '-r',
-    help='Allow another recipient to extract the archive.',
+    help='Allow another public key/alias to extract.',
     multiple=True)
 @click.pass_context
 def create(ctx, src, dst, compression, recipient):
@@ -76,6 +76,7 @@ def create(ctx, src, dst, compression, recipient):
     aliases = {alias: key for key, alias in signers if alias is not None}
     recipients = [aliases[r] if r in aliases else r for r in recipient]
     recipients.insert(0, public_key.read_text().strip())
+    # TODO Validate recipient values
     kwargs = {
         'compression': compression,
         'recipients': recipients,
