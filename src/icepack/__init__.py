@@ -19,7 +19,7 @@ _MAX_ATTEMPTS = 3
 class IcepackBase():
     """icepack base class."""
 
-    def __init__(self, archive_path, key_path):
+    def __init__(self, archive_path, key_path, mode=False):
         self.archive_path = archive_path.resolve()
         self.secret_key = key_path / SECRET_KEY
         self.public_key = key_path / PUBLIC_KEY
@@ -32,6 +32,7 @@ class IcepackBase():
             raise Exception(f'Missing allowed_signers: {self.allowed_signers}')
         self._tempdir = None
         self._zipfile = None
+        self._mode = mode
 
     def close(self, silent=False):
         """Close the archive and delete all temporary files."""
@@ -50,8 +51,8 @@ class IcepackBase():
 class IcepackReader(IcepackBase):
     """icepack reader."""
 
-    def __init__(self, archive_path, key_path):
-        super().__init__(archive_path, key_path)
+    def __init__(self, archive_path, key_path, mode=False):
+        super().__init__(archive_path, key_path, mode=mode)
         if not self.archive_path.is_file():
             raise Exception(f'Invalid archive path: {self.archive_path}')
         self._zipfile = Zip(self.archive_path)
@@ -73,6 +74,8 @@ class IcepackReader(IcepackBase):
             raise InvalidArchiveError(f'Invalid entry name: {entry.name}')
         if entry.is_dir():
             dst_path.mkdir(parents=True, exist_ok=True)
+            if self._mode and entry.mode is not None:
+                dst_path.chmod(entry.mode)
             return dst_path
         age_path = self._zipfile.extract_entry(entry.stored_name)
         age_stat = age_path.stat()
@@ -90,6 +93,8 @@ class IcepackReader(IcepackBase):
             age_path.unlink()
             self._uncompress_path(tmp_path, dst_path)
             tmp_path.unlink()
+        if self._mode and entry.mode is not None:
+            dst_path.chmod(entry.mode)
         return dst_path
 
     def _decrypt_path(self, src_path, dst_path):
@@ -141,8 +146,9 @@ class IcepackWriter(IcepackBase):
             archive_path,
             key_path,
             compression=Compression.BZ2,
+            mode=False,
             recipients=None):
-        super().__init__(archive_path, key_path)
+        super().__init__(archive_path, key_path, mode=mode)
         if self.archive_path.is_dir():
             raise Exception(f'Invalid archive path: {self.archive_path}')
         self._zipfile = Zip(self.archive_path, mode='w')
@@ -170,6 +176,7 @@ class IcepackWriter(IcepackBase):
     def add_entry(self, source, base_path):
         """Add source to the archive."""
         name = str(source.relative_to(base_path))
+        source_stat = source.stat()
         if source.is_dir():
             entry = DirEntry(name=name)
         else:
@@ -182,7 +189,7 @@ class IcepackWriter(IcepackBase):
             stored_name = '{:08}'.format(self._index)
             entry = FileEntry(
                 name=name,
-                size=source.stat().st_size,
+                size=source_stat.st_size,
                 compression=self._compression,
                 stored_name=stored_name,
                 stored_size=age_path.stat().st_size,
@@ -190,11 +197,13 @@ class IcepackWriter(IcepackBase):
             self._zipfile.add_entry(stored_name, age_path)
             self._index += 1
             age_path.unlink()
+        if self._mode:
+            entry.mode = source_stat.st_mode & 0o7777
         self.metadata.entries.append(entry)
 
     def add_metadata(self):
         """Add the metadata file."""
-        json_bytes = self.metadata.json().encode()
+        json_bytes = self.metadata.json(exclude_none=True).encode()
         bz2_bytes = bz2.compress(json_bytes)
         meta_path = self._mktemp()
         try:

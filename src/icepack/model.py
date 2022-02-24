@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Union
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, PydanticValueError, validator
 
@@ -36,6 +36,7 @@ class DirEntry(BaseModel):
     """Directory entry metadata."""
     entry_type: str = EntryType.DIR
     name: str
+    mode: Optional[int] = None
 
     @validator('entry_type')
     def correct_type(cls, v):
@@ -52,6 +53,7 @@ class FileEntry(BaseModel):
     entry_type: str = EntryType.FILE
     name: str
     size: int
+    mode: Optional[int] = None
     compression: str
     stored_name: str
     stored_size: int

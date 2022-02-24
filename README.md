@@ -50,6 +50,7 @@ Enter passphrase: *****
 | Option | Description |
 | --- | --- |
 | `--compression`, `-c` | Compression for all files: `bz2` or `none` (Default: `bz2`) |
+| `--mode` | Store file/directory modes. |
 | `--recipient`, `-r` | Allow another public key/alias to extract. |
 
 ### Extract an archive
@@ -63,6 +64,10 @@ Documents/Cat Pictures/grumpy.jpg
 Documents/Cat Pictures/socute.jpg
 Documents/world-domination.txt
 ```
+
+| Option | Description |
+| --- | --- |
+| `--mode` | Restore file/directory modes. |
 
 ### Check the version and dependencies
 

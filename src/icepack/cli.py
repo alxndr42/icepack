@@ -49,12 +49,13 @@ def init(ctx):
     help='Compression for all files.',
     type=click.Choice([c.value for c in Compression]),
     default=Compression.BZ2)
+@click.option('--mode', help='Store file/directory modes.', is_flag=True)
 @click.option(
     '--recipient', '-r',
     help='Allow another public key/alias to extract.',
     multiple=True)
 @click.pass_context
-def create(ctx, src, dst, compression, recipient):
+def create(ctx, src, dst, compression, mode, recipient):
     """Store files in an archive.
 
     SRC must be a file or directory, DST must be the archive file.
@@ -79,6 +80,7 @@ def create(ctx, src, dst, compression, recipient):
     # TODO Validate recipient values
     kwargs = {
         'compression': compression,
+        'mode': mode,
         'recipients': recipients,
     }
     try:
@@ -94,8 +96,9 @@ def create(ctx, src, dst, compression, recipient):
 @icepack.command()
 @click.argument('src', type=click.Path(exists=True, dir_okay=False))
 @click.argument('dst', type=click.Path(exists=True, file_okay=False))
+@click.option('--mode', help='Restore file/directory modes.', is_flag=True)
 @click.pass_context
-def extract(ctx, src, dst):
+def extract(ctx, src, dst, mode):
     """Extract files from an archive.
 
     SRC must be the archive file, DST must be a directory.
@@ -106,8 +109,11 @@ def extract(ctx, src, dst):
         raise click.ClickException(f'Invalid destination: {dst_path}')
     key_path = ctx.obj['config_path']
     _check_keys(key_path)
+    kwargs = {
+        'mode': mode,
+    }
     try:
-        with IcepackReader(src_path, key_path) as archive:
+        with IcepackReader(src_path, key_path, **kwargs) as archive:
             for entry in archive.metadata.entries:
                 click.echo(entry.name)
                 archive.extract_entry(entry, dst_path)

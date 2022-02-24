@@ -52,7 +52,7 @@ def test_round_trip_file(src_path, dst_path, zip_path, key_path):
     compare_paths(file_path, dst_path / 'foo')
 
 
-def test_without_compression(src_path, dst_path, zip_path, key_path):
+def test_none_compression(src_path, dst_path, zip_path, key_path):
     """Test round-trip with "none" compression."""
     # Create archive
     args = [
@@ -67,6 +67,33 @@ def test_without_compression(src_path, dst_path, zip_path, key_path):
     for src in File.children(src_path):
         dst = dst_path / src.relative_to(src_path.parent)
         compare_paths(src, dst)
+
+
+def test_mode_flag(src_path, dst_path, zip_path, key_path):
+    """Test creation and extraction with --mode."""
+    (src_path / 'foo').chmod(0o755)
+    (src_path / 'qux').chmod(0o700)
+    # Create archive
+    args = [
+        '-c', str(key_path),
+        'create',
+        str(src_path),
+        str(zip_path),
+        '--mode'
+    ]
+    run_cli(args)
+    # Extract archive
+    args = [
+        '-c', str(key_path),
+        'extract',
+        str(zip_path),
+        str(dst_path),
+        '--mode'
+    ]
+    run_cli(args)
+    # Check modes
+    assert (dst_path / 'src' / 'foo').stat().st_mode & 0o777 == 0o755
+    assert (dst_path / 'src' / 'qux').stat().st_mode & 0o777 == 0o700
 
 
 def test_list(src_path, dst_path, zip_path, key_path):
