@@ -49,13 +49,20 @@ def init(ctx):
     help='Compression for all files.',
     type=click.Choice([c.value for c in Compression]),
     default=Compression.BZ2)
-@click.option('--mode', help='Store file/directory modes.', is_flag=True)
+@click.option(
+    '--mode',
+    help='Store file/directory modes.',
+    is_flag=True)
+@click.option(
+    '--mtime',
+    help='Store file/directory modification times.',
+    is_flag=True)
 @click.option(
     '--recipient', '-r',
     help='Allow another public key/alias to extract.',
     multiple=True)
 @click.pass_context
-def create(ctx, src, dst, compression, mode, recipient):
+def create(ctx, src, dst, compression, mode, mtime, recipient):
     """Store files in an archive.
 
     SRC must be a file or directory, DST must be the archive file.
@@ -81,6 +88,7 @@ def create(ctx, src, dst, compression, mode, recipient):
     kwargs = {
         'compression': compression,
         'mode': mode,
+        'mtime': mtime,
         'recipients': recipients,
     }
     try:
@@ -96,9 +104,16 @@ def create(ctx, src, dst, compression, mode, recipient):
 @icepack.command()
 @click.argument('src', type=click.Path(exists=True, dir_okay=False))
 @click.argument('dst', type=click.Path(exists=True, file_okay=False))
-@click.option('--mode', help='Restore file/directory modes.', is_flag=True)
+@click.option(
+    '--mode',
+    help='Restore file/directory modes.',
+    is_flag=True)
+@click.option(
+    '--mtime',
+    help='Restore file/directory modification times.',
+    is_flag=True)
 @click.pass_context
-def extract(ctx, src, dst, mode):
+def extract(ctx, src, dst, mode, mtime):
     """Extract files from an archive.
 
     SRC must be the archive file, DST must be a directory.
@@ -111,12 +126,18 @@ def extract(ctx, src, dst, mode):
     _check_keys(key_path)
     kwargs = {
         'mode': mode,
+        'mtime': mtime,
     }
     try:
         with IcepackReader(src_path, key_path, **kwargs) as archive:
             for entry in archive.metadata.entries:
                 click.echo(entry.name)
                 archive.extract_entry(entry, dst_path)
+            if mtime:
+                # Fix directory mtimes
+                dirs = [e for e in archive.metadata.entries if e.is_dir()]
+                for d in dirs:
+                    archive.extract_entry(d, dst_path)
     except Exception as e:
         raise click.ClickException(f'Archive extraction failed: {e}')
 

@@ -1,3 +1,5 @@
+import os
+
 from click.testing import CliRunner
 
 from icepack.cli import icepack
@@ -94,6 +96,33 @@ def test_mode_flag(src_path, dst_path, zip_path, key_path):
     # Check modes
     assert (dst_path / 'src' / 'foo').stat().st_mode & 0o777 == 0o755
     assert (dst_path / 'src' / 'qux').stat().st_mode & 0o777 == 0o700
+
+
+def test_mtime_flag(src_path, dst_path, zip_path, key_path):
+    """Test creation and extraction with --mtime."""
+    os.utime((src_path / 'foo'), times=(0, 0))
+    os.utime((src_path / 'qux'), times=(1640995200, 1640995200))
+    # Create archive
+    args = [
+        '-c', str(key_path),
+        'create',
+        str(src_path),
+        str(zip_path),
+        '--mtime'
+    ]
+    run_cli(args)
+    # Extract archive
+    args = [
+        '-c', str(key_path),
+        'extract',
+        str(zip_path),
+        str(dst_path),
+        '--mtime'
+    ]
+    run_cli(args)
+    # Check mtimes
+    assert (dst_path / 'src' / 'foo').stat().st_mtime == 0
+    assert (dst_path / 'src' / 'qux').stat().st_mtime == 1640995200
 
 
 def test_list(src_path, dst_path, zip_path, key_path):

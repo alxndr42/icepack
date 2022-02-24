@@ -51,6 +51,7 @@ Enter passphrase: *****
 | --- | --- |
 | `--compression`, `-c` | Compression for all files: `bz2` or `none` (Default: `bz2`) |
 | `--mode` | Store file/directory modes. |
+| `--mtime` | Store file/directory modification times. |
 | `--recipient`, `-r` | Allow another public key/alias to extract. |
 
 ### Extract an archive
@@ -68,6 +69,7 @@ Documents/world-domination.txt
 | Option | Description |
 | --- | --- |
 | `--mode` | Restore file/directory modes. |
+| `--mtime` | Restore file/directory modification times. |
 
 ### Check the version and dependencies
 

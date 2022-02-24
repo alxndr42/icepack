@@ -1,5 +1,6 @@
 import bz2
 import json
+import os
 from pathlib import Path
 from shutil import copyfileobj, rmtree
 
@@ -19,7 +20,7 @@ _MAX_ATTEMPTS = 3
 class IcepackBase():
     """icepack base class."""
 
-    def __init__(self, archive_path, key_path, mode=False):
+    def __init__(self, archive_path, key_path, mode=False, mtime=False):
         self.archive_path = archive_path.resolve()
         self.secret_key = key_path / SECRET_KEY
         self.public_key = key_path / PUBLIC_KEY
@@ -33,6 +34,7 @@ class IcepackBase():
         self._tempdir = None
         self._zipfile = None
         self._mode = mode
+        self._mtime = mtime
 
     def close(self, silent=False):
         """Close the archive and delete all temporary files."""
@@ -51,8 +53,8 @@ class IcepackBase():
 class IcepackReader(IcepackBase):
     """icepack reader."""
 
-    def __init__(self, archive_path, key_path, mode=False):
-        super().__init__(archive_path, key_path, mode=mode)
+    def __init__(self, archive_path, key_path, mode=False, mtime=False):
+        super().__init__(archive_path, key_path, mode=mode, mtime=mtime)
         if not self.archive_path.is_file():
             raise Exception(f'Invalid archive path: {self.archive_path}')
         self._zipfile = Zip(self.archive_path)
@@ -76,6 +78,8 @@ class IcepackReader(IcepackBase):
             dst_path.mkdir(parents=True, exist_ok=True)
             if self._mode and entry.mode is not None:
                 dst_path.chmod(entry.mode)
+            if self._mtime and entry.mtime is not None:
+                os.utime(dst_path, ns=(entry.mtime, entry.mtime))
             return dst_path
         age_path = self._zipfile.extract_entry(entry.stored_name)
         age_stat = age_path.stat()
@@ -95,6 +99,8 @@ class IcepackReader(IcepackBase):
             tmp_path.unlink()
         if self._mode and entry.mode is not None:
             dst_path.chmod(entry.mode)
+        if self._mtime and entry.mtime is not None:
+            os.utime(dst_path, ns=(entry.mtime, entry.mtime))
         return dst_path
 
     def _decrypt_path(self, src_path, dst_path):
@@ -147,8 +153,9 @@ class IcepackWriter(IcepackBase):
             key_path,
             compression=Compression.BZ2,
             mode=False,
+            mtime=False,
             recipients=None):
-        super().__init__(archive_path, key_path, mode=mode)
+        super().__init__(archive_path, key_path, mode=mode, mtime=mtime)
         if self.archive_path.is_dir():
             raise Exception(f'Invalid archive path: {self.archive_path}')
         self._zipfile = Zip(self.archive_path, mode='w')
@@ -199,6 +206,8 @@ class IcepackWriter(IcepackBase):
             age_path.unlink()
         if self._mode:
             entry.mode = source_stat.st_mode & 0o7777
+        if self._mtime:
+            entry.mtime = source_stat.st_mtime_ns
         self.metadata.entries.append(entry)
 
     def add_metadata(self):
