@@ -84,7 +84,9 @@ def create(ctx, src, dst, compression, mode, mtime, recipient):
     aliases = {alias: key for key, alias in signers if alias is not None}
     recipients = [aliases[r] if r in aliases else r for r in recipient]
     recipients.insert(0, public_key.read_text().strip())
-    # TODO Validate recipient values
+    for r in recipients:
+        if not r.startswith('ssh-'):
+            raise click.ClickException(f'Invalid recipient: {r}')
     kwargs = {
         'compression': compression,
         'mode': mode,
