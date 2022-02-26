@@ -8,6 +8,7 @@ click = "*"
 pydantic = "*"
 
 [dev-packages]
+bandit = "*"
 build = "*"
 pycodestyle = "*"
 pytest = "*"

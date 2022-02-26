@@ -2,7 +2,7 @@ import hashlib
 import os
 from pathlib import Path
 from shutil import copyfileobj, rmtree, which
-import subprocess
+import subprocess  # nosec
 import tempfile
 
 from zipfile import ZIP_STORED, is_zipfile, ZipFile, ZipInfo
@@ -13,7 +13,7 @@ from icepack.meta import NAME, SECRET_KEY, PUBLIC_KEY, ALLOWED_SIGNERS
 
 _BUFFER_SIZE = 64 * 1024
 _PUBLIC_KEY_PREFIX = 'age'
-_SECRET_KEY_PREFIX = 'AGE-SECRET-KEY-'
+_SECRET_KEY_PREFIX = 'AGE-SECRET-KEY-'  # nosec No secret
 
 
 class Age():
@@ -24,7 +24,7 @@ class Age():
         """Return a (secret_key, public_key) from age-keygen."""
         secret_key = None
         public_key = None
-        result = subprocess.run(
+        result = subprocess.run(  # nosec Trusted input
             ['age-keygen'],
             capture_output=True,
             text=True,
@@ -36,7 +36,7 @@ class Age():
                 break
         else:
             raise Exception('No secret key in age-keygen output.')
-        result = subprocess.run(
+        result = subprocess.run(  # nosec Trusted input
             ['age-keygen', '-y'],
             input=secret_key,
             capture_output=True,
@@ -52,7 +52,7 @@ class Age():
     @staticmethod
     def encrypt(src_path, dst_path, secret_key):
         """Encrypt src_path to dst_path, pass secret_key to age STDIN."""
-        subprocess.run(
+        subprocess.run(  # nosec Trusted input
             ['age', '-e', '-i', '-', '-o', str(dst_path), str(src_path)],
             input=secret_key,
             text=True,
@@ -61,7 +61,7 @@ class Age():
     @staticmethod
     def decrypt(src_path, dst_path, secret_key):
         """Decrypt src_path to dst_path, pass secret_key to age STDIN."""
-        subprocess.run(
+        subprocess.run(  # nosec Trusted input
             ['age', '-d', '-i', '-', '-o', str(dst_path), str(src_path)],
             input=secret_key,
             text=True,
@@ -73,12 +73,12 @@ class Age():
         args = ['age', '-e', '-o', str(dst_path)]
         for recipient in recipients:
             args.extend(['-r', recipient])
-        subprocess.run(args, input=data, check=True)
+        subprocess.run(args, input=data, check=True)  # nosec Trusted input
 
     @staticmethod
     def decrypt_bytes(src_path, identity):
         """Decrypt src_path via age STDOUT."""
-        result = subprocess.run(
+        result = subprocess.run(  # nosec Trusted input
             ['age', '-d', '-i', str(identity), str(src_path)],
             capture_output=True,
             check=True)
@@ -89,7 +89,7 @@ class Age():
         """Return the age version and age-keygen presence as a tuple."""
         age_version = None
         if which('age'):
-            result = subprocess.run(
+            result = subprocess.run(  # nosec Trusted input
                 ['age', '--version'],
                 capture_output=True,
                 text=True,
@@ -145,7 +145,7 @@ class SSH():
         secret_key = key_path / SECRET_KEY
         if secret_key.is_file():
             raise Exception(f'{secret_key} already exists.')
-        subprocess.run(
+        subprocess.run(  # nosec Trusted input
             [
                 'ssh-keygen',
                 '-t', 'ed25519',
@@ -162,7 +162,7 @@ class SSH():
     @staticmethod
     def sign(data_path, secret_key):
         """Sign data_path with ssh-keygen."""
-        subprocess.run(
+        subprocess.run(  # nosec Trusted input
             [
                 'ssh-keygen',
                 '-Y', 'sign',
@@ -180,7 +180,7 @@ class SSH():
     @staticmethod
     def verify(data_path, sig_path, allowed_signers):
         """Verify the signature with ssh-keygen."""
-        subprocess.run(
+        subprocess.run(  # nosec Trusted input
             [
                 'ssh-keygen',
                 '-Y', 'verify',
@@ -198,7 +198,7 @@ class SSH():
         """Return the SSH version and ssh-keygen presence as a tuple."""
         ssh_version = None
         if which('ssh'):
-            result = subprocess.run(
+            result = subprocess.run(  # nosec Trusted input
                 ['ssh', '-V'],
                 capture_output=True,
                 text=True,
