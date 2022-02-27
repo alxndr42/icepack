@@ -1,5 +1,5 @@
 NAME = 'icepack'
-VERSION = '0.5.0'
+VERSION = '0.5.1'
 
 SECRET_KEY = 'identity'  # nosec No secret
 PUBLIC_KEY = 'identity.pub'
