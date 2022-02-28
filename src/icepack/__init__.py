@@ -246,3 +246,82 @@ class IcepackWriter(IcepackBase):
         except Exception:
             raise Exception('Failed to encrypt entry.')
         return tmp_path
+
+
+def create_archive(
+        src_path,
+        dst_path,
+        key_path,
+        compression=Compression.BZ2,
+        mode=False,
+        mtime=False,
+        recipients=None,
+        log=lambda msg: None):
+    """Convenience function for archive creation."""
+    src_path = src_path.resolve()
+    dst_path = dst_path.resolve()
+    base_path = src_path.parent
+    if src_path.is_file():
+        sources = [src_path]
+    elif src_path.is_dir():
+        sources = list(File.children(src_path))
+        sources.sort(key=_sort_key)
+    else:
+        raise Exception(f'Invalid source: {src_path}')
+    if recipients is not None:
+        public_key = (key_path / PUBLIC_KEY).read_text().strip()
+        signers = SSH.get_signers(key_path)
+        aliases = {alias: key for key, alias in signers if alias is not None}
+        resolved = list(map(lambda r: aliases.get(r, r), recipients))
+        resolved.insert(0, public_key)
+        recipients = resolved
+    if recipients is not None:
+        for r in recipients:
+            if not r.startswith('ssh-'):
+                raise Exception(f'Invalid recipient: {r}')
+    kwargs = {
+        'compression': compression,
+        'mode': mode,
+        'mtime': mtime,
+        'recipients': recipients,
+    }
+    with IcepackWriter(dst_path, key_path, **kwargs) as archive:
+        for source in sources:
+            log(source.relative_to(base_path))
+            archive.add_entry(source, base_path)
+        archive.add_metadata()
+
+
+def extract_archive(
+        src_path,
+        dst_path,
+        key_path,
+        mode=False,
+        mtime=False,
+        log=lambda msg: None):
+    """Convenience function for archive extraction."""
+    src_path = src_path.resolve()
+    dst_path = dst_path.resolve()
+    if not dst_path.is_dir():
+        raise Exception(f'Invalid destination: {dst_path}')
+    kwargs = {
+        'mode': mode,
+        'mtime': mtime,
+    }
+    with IcepackReader(src_path, key_path, **kwargs) as archive:
+        for entry in archive.metadata.entries:
+            log(entry.name)
+            archive.extract_entry(entry, dst_path)
+        if mtime:
+            # Fix directory mtimes
+            dirs = [e for e in archive.metadata.entries if e.is_dir()]
+            for d in dirs:
+                archive.extract_entry(d, dst_path)
+
+
+def _sort_key(path):
+    """Sort key for Paths."""
+    key = str(path).casefold()
+    if path.is_dir:
+        key += '/'
+    return key

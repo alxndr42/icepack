@@ -2,7 +2,7 @@ from pathlib import Path
 
 import click
 
-from icepack import IcepackReader, IcepackWriter
+from icepack import IcepackReader, create_archive, extract_archive
 from icepack.helper import Age, File, SSH
 from icepack.meta import NAME, VERSION, SECRET_KEY, PUBLIC_KEY
 from icepack.model import Compression
@@ -67,38 +67,20 @@ def create(ctx, src, dst, compression, mode, mtime, recipient):
 
     SRC must be a file or directory, DST must be the archive file.
     """
-    src_path = Path(src).resolve()
-    dst_path = Path(dst).resolve()
-    if src_path.is_file():
-        sources = [src_path]
-    elif src_path.is_dir():
-        sources = list(File.children(src_path))
-        sources.sort(key=_sort_key)
-    else:
-        raise click.ClickException(f'Invalid source: {src_path}')
-    base = src_path.parent
+    src_path = Path(src)
+    dst_path = Path(dst)
     key_path = ctx.obj['config_path']
     _check_keys(key_path)
-    public_key = key_path / PUBLIC_KEY
-    signers = SSH.get_signers(key_path)
-    aliases = {alias: key for key, alias in signers if alias is not None}
-    recipients = [aliases[r] if r in aliases else r for r in recipient]
-    recipients.insert(0, public_key.read_text().strip())
-    for r in recipients:
-        if not r.startswith('ssh-'):
-            raise click.ClickException(f'Invalid recipient: {r}')
-    kwargs = {
-        'compression': compression,
-        'mode': mode,
-        'mtime': mtime,
-        'recipients': recipients,
-    }
     try:
-        with IcepackWriter(dst_path, key_path, **kwargs) as archive:
-            for source in sources:
-                click.echo(source.relative_to(base))
-                archive.add_entry(source, base)
-            archive.add_metadata()
+        create_archive(
+            src_path,
+            dst_path,
+            key_path,
+            compression=compression,
+            mode=mode,
+            mtime=mtime,
+            recipients=recipient,
+            log=click.echo)
     except Exception as e:
         raise click.ClickException(f'Archive creation failed: {e}')
 
@@ -120,26 +102,18 @@ def extract(ctx, src, dst, mode, mtime):
 
     SRC must be the archive file, DST must be a directory.
     """
-    src_path = Path(src).resolve()
-    dst_path = Path(dst).resolve()
-    if not dst_path.is_dir():
-        raise click.ClickException(f'Invalid destination: {dst_path}')
+    src_path = Path(src)
+    dst_path = Path(dst)
     key_path = ctx.obj['config_path']
     _check_keys(key_path)
-    kwargs = {
-        'mode': mode,
-        'mtime': mtime,
-    }
     try:
-        with IcepackReader(src_path, key_path, **kwargs) as archive:
-            for entry in archive.metadata.entries:
-                click.echo(entry.name)
-                archive.extract_entry(entry, dst_path)
-            if mtime:
-                # Fix directory mtimes
-                dirs = [e for e in archive.metadata.entries if e.is_dir()]
-                for d in dirs:
-                    archive.extract_entry(d, dst_path)
+        extract_archive(
+            src_path,
+            dst_path,
+            key_path,
+            mode=mode,
+            mtime=mtime,
+            log=click.echo)
     except Exception as e:
         raise click.ClickException(f'Archive extraction failed: {e}')
 
@@ -258,14 +232,6 @@ def _check_keys(key_path):
     if not (key_path / SECRET_KEY).is_file():
         msg = f'Please run "{NAME} init" to initialize the keys.'
         raise click.ClickException(msg)
-
-
-def _sort_key(path):
-    """Sort key for Paths."""
-    key = str(path).casefold()
-    if path.is_dir:
-        key += '/'
-    return key
 
 
 if __name__ == '__main__':
