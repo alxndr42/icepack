@@ -153,7 +153,6 @@ class SSH():
                 '-f', secret_key,
                 '-q'
             ],
-            timeout=5,
             check=True)
         public_key = (key_path / PUBLIC_KEY).read_text()
         allowed_signers = f'{NAME} {public_key}'
