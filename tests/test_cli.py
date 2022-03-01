@@ -54,6 +54,29 @@ def test_round_trip_file(src_path, dst_path, zip_path, key_path):
     compare_paths(file_path, dst_path / 'foo')
 
 
+def test_comment(src_path, dst_path, zip_path, key_path):
+    """Test creation and extraction with --comment."""
+    # Create archive
+    args = [
+        '-c', str(key_path),
+        'create',
+        str(src_path),
+        str(zip_path),
+        '--comment', 'Hello, World!'
+    ]
+    run_cli(args)
+    # Extract archive
+    args = [
+        '-c', str(key_path),
+        'extract',
+        str(zip_path),
+        str(dst_path)
+    ]
+    result = run_cli(args)
+    # Check for comment
+    assert 'Hello, World!' in result.stdout
+
+
 def test_none_compression(src_path, dst_path, zip_path, key_path):
     """Test round-trip with "none" compression."""
     # Create archive

@@ -151,6 +151,7 @@ class IcepackWriter(IcepackBase):
             self,
             archive_path,
             key_path,
+            comment=None,
             compression=Compression.BZ2,
             mode=False,
             mtime=False,
@@ -161,6 +162,7 @@ class IcepackWriter(IcepackBase):
         self._zipfile = Zip(self.archive_path, mode='w')
         self.metadata = Metadata(
             archive_name=self.archive_path.name,
+            comment=comment,
             checksum_type=Checksum.SHA256,
             encryption=Encryption.AGE,
             encryption_key=Age.keygen()[0])
@@ -252,6 +254,7 @@ def create_archive(
         src_path,
         dst_path,
         key_path,
+        comment=None,
         compression=Compression.BZ2,
         mode=False,
         mtime=False,
@@ -280,6 +283,7 @@ def create_archive(
             if not r.startswith('ssh-'):
                 raise Exception(f'Invalid recipient: {r}')
     kwargs = {
+        'comment': comment,
         'compression': compression,
         'mode': mode,
         'mtime': mtime,
@@ -309,6 +313,8 @@ def extract_archive(
         'mtime': mtime,
     }
     with IcepackReader(src_path, key_path, **kwargs) as archive:
+        if archive.metadata.comment:
+            log(f'Comment: {archive.metadata.comment}')
         for entry in archive.metadata.entries:
             log(entry.name)
             archive.extract_entry(entry, dst_path)

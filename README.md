@@ -49,6 +49,7 @@ Enter passphrase: *****
 
 | Option | Description |
 | --- | --- |
+| `--comment` | Archive comment. |
 | `--compression`, `-c` | Compression for all files: `bz2` or `none` (Default: `bz2`) |
 | `--mode` | Store file/directory modes. |
 | `--mtime` | Store file/directory modification times. |

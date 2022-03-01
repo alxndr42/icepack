@@ -79,6 +79,7 @@ class FileEntry(BaseModel):
 class Metadata(BaseModel):
     """Archive metadata."""
     archive_name: str
+    comment: Optional[str] = None
     checksum_type: str
     encryption: str
     encryption_key: str

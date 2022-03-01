@@ -44,6 +44,7 @@ def init(ctx):
 @icepack.command()
 @click.argument('src', type=click.Path(exists=True))
 @click.argument('dst', type=click.Path())
+@click.option('--comment', help='Archive comment.')
 @click.option(
     '--compression', '-c',
     help='Compression for all files.',
@@ -62,7 +63,7 @@ def init(ctx):
     help='Allow another public key/alias to extract.',
     multiple=True)
 @click.pass_context
-def create(ctx, src, dst, compression, mode, mtime, recipient):
+def create(ctx, src, dst, comment, compression, mode, mtime, recipient):
     """Store files in an archive.
 
     SRC must be a file or directory, DST must be the archive file.
@@ -76,6 +77,7 @@ def create(ctx, src, dst, compression, mode, mtime, recipient):
             src_path,
             dst_path,
             key_path,
+            comment=comment,
             compression=compression,
             mode=mode,
             mtime=mtime,
@@ -128,6 +130,8 @@ def list_archive(ctx, src):
     _check_keys(key_path)
     try:
         with IcepackReader(src_path, key_path) as archive:
+            if archive.metadata.comment:
+                click.echo(f'Comment: {archive.metadata.comment}')
             for entry in archive.metadata.entries:
                 click.echo(entry.name)
     except Exception as e:
