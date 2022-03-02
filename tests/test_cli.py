@@ -27,10 +27,50 @@ def test_init_existing_keys(key_path):
     assert secret_path.read_text() == secret_key
 
 
-def test_round_trip_directory(src_path, dst_path, zip_path, key_path):
-    """Test creation and extraction of a directory."""
+def test_bz2_compression(src_path, dst_path, zip_path, key_path):
+    """Test round-trip with "bz2" compression."""
     # Create archive
-    args = ['-c', str(key_path), 'create', str(src_path), str(zip_path)]
+    args = [
+        '-c', str(key_path),
+        'create',
+        '--compression', 'bz2',
+        str(src_path), str(zip_path)]
+    run_cli(args)
+    # Extract archive
+    args = ['-c', str(key_path), 'extract', str(zip_path), str(dst_path)]
+    run_cli(args)
+    # Compare directories
+    for src in File.children(src_path):
+        dst = dst_path / src.relative_to(src_path.parent)
+        compare_paths(src, dst)
+
+
+def test_gz_compression(src_path, dst_path, zip_path, key_path):
+    """Test round-trip with "gz" compression."""
+    # Create archive
+    args = [
+        '-c', str(key_path),
+        'create',
+        '--compression', 'gz',
+        str(src_path), str(zip_path)]
+    run_cli(args)
+    # Extract archive
+    args = ['-c', str(key_path), 'extract', str(zip_path), str(dst_path)]
+    run_cli(args)
+    # Compare directories
+    for src in File.children(src_path):
+        dst = dst_path / src.relative_to(src_path.parent)
+        compare_paths(src, dst)
+
+
+def test_none_compression(src_path, dst_path, zip_path, key_path):
+    """Test round-trip with "none" compression."""
+    # Create archive
+    args = [
+        '-c', str(key_path),
+        'create',
+        '--compression', 'none',
+        str(src_path), str(zip_path)]
     run_cli(args)
     # Extract archive
     args = ['-c', str(key_path), 'extract', str(zip_path), str(dst_path)]
@@ -75,23 +115,6 @@ def test_comment(src_path, dst_path, zip_path, key_path):
     result = run_cli(args)
     # Check for comment
     assert 'Hello, World!' in result.stdout
-
-
-def test_none_compression(src_path, dst_path, zip_path, key_path):
-    """Test round-trip with "none" compression."""
-    # Create archive
-    args = [
-        '-c', str(key_path),
-        'create', '--compression', 'none',
-        str(src_path), str(zip_path)]
-    run_cli(args)
-    # Extract archive
-    args = ['-c', str(key_path), 'extract', str(zip_path), str(dst_path)]
-    run_cli(args)
-    # Compare directories
-    for src in File.children(src_path):
-        dst = dst_path / src.relative_to(src_path.parent)
-        compare_paths(src, dst)
 
 
 def test_mode_flag(src_path, dst_path, zip_path, key_path):

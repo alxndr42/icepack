@@ -50,7 +50,7 @@ Enter passphrase: *****
 | Option | Description |
 | --- | --- |
 | `--comment` | Archive comment. |
-| `--compression`, `-c` | Compression for all files: `bz2` or `none` (Default: `bz2`) |
+| `--compression`, `-c` | Compression for all files: `bz2`, `gz` or `none` (Default: `gz`) |
 | `--mode` | Store file/directory modes. |
 | `--mtime` | Store file/directory modification times. |
 | `--recipient`, `-r` | Allow another public key/alias to extract. |

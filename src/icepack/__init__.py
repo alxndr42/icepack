@@ -1,4 +1,5 @@
 import bz2
+import gzip
 import json
 import os
 from pathlib import Path
@@ -95,7 +96,7 @@ class IcepackReader(IcepackBase):
             tmp_path = self._mktemp()
             self._decrypt_path(age_path, tmp_path)
             age_path.unlink()
-            self._uncompress_path(tmp_path, dst_path)
+            self._uncompress_path(tmp_path, dst_path, entry.compression)
             tmp_path.unlink()
         if self._mode and entry.mode is not None:
             dst_path.chmod(entry.mode)
@@ -136,12 +137,18 @@ class IcepackReader(IcepackBase):
         meta_path.unlink()
         sig_path.unlink()
 
-    def _uncompress_path(self, src_path, dst_path):
+    def _uncompress_path(self, src_path, dst_path, compression):
         """Uncompressed src_path to dst_path."""
-        with open(src_path, 'rb') as src_file:
-            with bz2.open(src_file, 'rb') as src:
-                with open(dst_path, 'wb') as dst:
-                    copyfileobj(src, dst, _BUFFER_SIZE)
+        with open(dst_path, 'wb') as dst:
+            with open(src_path, 'rb') as src_file:
+                if compression == Compression.BZ2:
+                    with bz2.open(src_file, 'rb') as src:
+                        copyfileobj(src, dst, _BUFFER_SIZE)
+                elif compression == Compression.GZ:
+                    with gzip.open(src_file, 'rb') as src:
+                        copyfileobj(src, dst, _BUFFER_SIZE)
+                else:
+                    raise Exception('Unsupported compression.')
 
 
 class IcepackWriter(IcepackBase):
@@ -152,7 +159,7 @@ class IcepackWriter(IcepackBase):
             archive_path,
             key_path,
             comment=None,
-            compression=Compression.BZ2,
+            compression=Compression.GZ,
             mode=False,
             mtime=False,
             recipients=None):
@@ -236,8 +243,14 @@ class IcepackWriter(IcepackBase):
         """Return the temporary Path of the compressed src_path."""
         tmp_path = self._mktemp()
         with open(src_path, 'rb') as src:
-            with bz2.open(tmp_path, 'wb') as dst:
-                copyfileobj(src, dst, _BUFFER_SIZE)
+            if self._compression == Compression.BZ2:
+                with bz2.open(tmp_path, 'wb') as dst:
+                    copyfileobj(src, dst, _BUFFER_SIZE)
+            elif self._compression == Compression.GZ:
+                with gzip.open(tmp_path, 'wb') as dst:
+                    copyfileobj(src, dst, _BUFFER_SIZE)
+            else:
+                raise Exception('Unsupported compression.')
         return tmp_path
 
     def _encrypt_path(self, src_path):
@@ -255,7 +268,7 @@ def create_archive(
         dst_path,
         key_path,
         comment=None,
-        compression=Compression.BZ2,
+        compression=Compression.GZ,
         mode=False,
         mtime=False,
         recipients=None,
