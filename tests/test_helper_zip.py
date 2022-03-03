@@ -48,6 +48,16 @@ class TestWriteMode:
         with pytest.raises(InvalidArchiveError):
             zip_file.add_entry('bar', foo)
 
+    def test_context_manager(self, src_path, zip_path):
+        with Zip(zip_path, mode='w') as zip_file:
+            zip_file.add_entry('foo', src_path / 'foo')
+            meta_path = src_path / 'qux' / 'quux'
+            zip_file.add_metadata(meta_path, meta_path)
+            temp_dir = zip_file._temp_dir
+            assert temp_dir.exists()
+        assert not temp_dir.exists()
+        assert zip_path.exists()
+
 
 class TestReadMode:
     """Test read operations."""
@@ -66,3 +76,12 @@ class TestReadMode:
         path = shared_datadir / 'zips' / 'infozip.zip'
         with pytest.raises(InvalidArchiveError):
             zip_file = Zip(path)
+
+    def test_context_manager(self, shared_datadir):
+        path = shared_datadir / 'zips' / 'zip-helper.zip'
+        with Zip(path) as zip_file:
+            path = zip_file.extract_entry('foo')
+            assert File.sha256(path) == 'b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c'  # noqa
+            temp_dir = zip_file._temp_dir
+            assert temp_dir.exists()
+        assert not temp_dir.exists()

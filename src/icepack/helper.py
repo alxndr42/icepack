@@ -285,6 +285,13 @@ class Zip():
         else:
             self._entries = {}
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        failed = exc_type is not None
+        self.close(silent=failed)
+
     def add_entry(self, key, path):
         """Add an entry with the content of path (may be None)."""
         if self._mode != 'w':
