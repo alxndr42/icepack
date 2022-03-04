@@ -277,13 +277,16 @@ class Zip():
         self.path = path.resolve()
         self._mode = mode
         self._zipfile = ZipFile(path, mode=mode)
-        self._temp_dir = File.mktemp(directory=True)
+        self._tempdir = File.mktemp(directory=True)
+        self._entries = {}
         if mode == 'r':
             infolist = self._zipfile.infolist()
             self._validate_infolist(infolist)
-            self._entries = {i.filename: i for i in infolist}
-        else:
-            self._entries = {}
+            for i in infolist:
+                if i.filename.startswith('metadata'):
+                    self._entries['metadata'] = i
+                else:
+                    self._entries[i.filename] = i
 
     def __enter__(self):
         return self
@@ -298,6 +301,8 @@ class Zip():
             raise Exception('Not in write mode.')
         if key in self._entries:
             raise InvalidArchiveError(f'Duplicate key: {key}')
+        if key.startswith('metadata'):
+            raise InvalidArchiveError(f'Invalid key: {key}')
         if 'metadata' in self._entries:
             raise InvalidArchiveError(f'Metadata file already added.')
         info = ZipInfo(key)
@@ -314,7 +319,9 @@ class Zip():
             raise Exception('Not in write mode.')
         if 'metadata' in self._entries:
             raise InvalidArchiveError(f'Metadata file already added.')
-        info = ZipInfo('metadata')
+        if not data_path.name.startswith('metadata'):
+            raise InvalidArchiveError('Invalid metadata filename.')
+        info = ZipInfo(data_path.name)
         info.comment = sig_path.read_bytes()
         self._entries['metadata'] = info
         with self._zipfile.open(info, mode='w', force_zip64=True) as dst:
@@ -323,7 +330,7 @@ class Zip():
 
     def close(self, silent=False):
         """Close the Zip archive and delete all temporary files."""
-        rmtree(self._temp_dir, ignore_errors=True)
+        rmtree(self._tempdir, ignore_errors=True)
         try:
             self._zipfile.close()
         except Exception:
@@ -339,7 +346,7 @@ class Zip():
         if key not in self._entries:
             raise Exception(f'Invalid key: {key}')
         info = self._entries[key]
-        path = Path(self._zipfile.extract(info, path=self._temp_dir))
+        path = Path(self._zipfile.extract(info, path=self._tempdir))
         return path
 
     def extract_metadata(self):
@@ -347,7 +354,7 @@ class Zip():
         if self._mode != 'r':
             raise Exception('Not in read mode.')
         info = self._entries['metadata']
-        meta_path = Path(self._zipfile.extract(info, path=self._temp_dir))
+        meta_path = Path(self._zipfile.extract(info, path=self._tempdir))
         sig_path = meta_path.parent / (meta_path.name + '.sig')
         sig_path.write_bytes(info.comment)
         return meta_path, sig_path
@@ -357,12 +364,15 @@ class Zip():
         """Check the infolist for validity."""
         if len(infolist) == 0:
             raise InvalidArchiveError('Empty Zip.')
-        if infolist[-1].filename != 'metadata':
+        if any(map(lambda i: i.compress_type != ZIP_STORED, infolist)):
+            raise InvalidArchiveError('Non-STORED Zip entry.')
+        if not infolist[-1].filename.startswith('metadata'):
             raise InvalidArchiveError('No metadata file at end of Zip.')
         if infolist[-1].comment is None:
             raise InvalidArchiveError('No metadata signature.')
-        filenames = {i.filename for i in infolist}
-        if len(filenames) != len(infolist):
+        files = infolist[:-1]
+        names = {f.filename for f in files}
+        if len(names) != len(files):
             raise InvalidArchiveError(f'Duplicate filename in Zip.')
-        if any(map(lambda i: i.compress_type != ZIP_STORED, infolist)):
-            raise InvalidArchiveError('Non-STORED Zip entry.')
+        if any(map(lambda f: f.filename.startswith('metadata'), files)):
+            raise InvalidArchiveError('Invalid filename.')

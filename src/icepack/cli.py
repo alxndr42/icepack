@@ -47,7 +47,7 @@ def init(ctx):
 @click.option('--comment', help='Archive comment.')
 @click.option(
     '--compression', '-c',
-    help=f'Compression for all files. (Default: {Compression.GZ})',
+    help=f'Compression type. (Default: {Compression.GZ})',
     type=click.Choice([c.value for c in Compression]),
     default=Compression.GZ)
 @click.option(

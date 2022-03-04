@@ -3,6 +3,7 @@ import gzip
 import json
 import os
 from pathlib import Path
+import re
 from shutil import copyfileobj, rmtree
 
 from pydantic import ValidationError
@@ -16,6 +17,7 @@ from icepack.model import DirEntry, FileEntry, Metadata
 
 _BUFFER_SIZE = 64 * 1024
 _MAX_ATTEMPTS = 3
+_METADATA_RE = re.compile(r'^metadata\.(\w+)\.(\w+)$')
 
 
 class IcepackBase():
@@ -32,22 +34,19 @@ class IcepackBase():
             raise Exception(f'Missing public key: {self.public_key}')
         if not self.allowed_signers.is_file():
             raise Exception(f'Missing allowed_signers: {self.allowed_signers}')
-        self._tempdir = None
+        self._tempdir = File.mktemp(directory=True)
         self._zipfile = None
         self._mode = mode
         self._mtime = mtime
 
     def close(self, silent=False):
         """Close the archive and delete all temporary files."""
-        if self._tempdir is not None:
-            rmtree(self._tempdir, ignore_errors=True)
+        rmtree(self._tempdir, ignore_errors=True)
         if self._zipfile is not None:
             self._zipfile.close(silent=silent)
 
     def _mktemp(self):
         """Return the Path of a new temporary file."""
-        if self._tempdir is None:
-            File.mktemp(directory=True)
         return File.mktemp(parent=self._tempdir)
 
 
@@ -114,18 +113,26 @@ class IcepackReader(IcepackBase):
     def _load_metadata(self):
         """Extract and validate the metadata."""
         meta_path, sig_path = self._zipfile.extract_metadata()
+        if (m := _METADATA_RE.match(meta_path.name)) is None:
+            raise InvalidArchiveError('Invalid metadata filename.')
+        compression = m.group(1)
+        if compression != 'gz':
+            raise InvalidArchiveError('Unsupported metadata compression.')
+        encryption = m.group(2)
+        if encryption != 'age':
+            raise InvalidArchiveError('Unsupported metadata encryption.')
         try:
             SSH.verify(meta_path, sig_path, self.allowed_signers)
         except Exception:
             raise Exception('Failed to verify metadata signature.')
         for attempt in range(0, _MAX_ATTEMPTS):
             try:
-                bz2_bytes = Age.decrypt_bytes(meta_path, self.secret_key)
+                gz_bytes = Age.decrypt_bytes(meta_path, self.secret_key)
                 break
             except Exception:
                 if attempt == _MAX_ATTEMPTS - 1:
                     raise Exception('Failed to decrypt metadata.')
-        json_bytes = bz2.decompress(bz2_bytes)
+        json_bytes = gzip.decompress(gz_bytes)
         try:
             self.metadata = Metadata.parse_raw(json_bytes)
         except ValidationError as e:
@@ -222,10 +229,10 @@ class IcepackWriter(IcepackBase):
     def add_metadata(self):
         """Add the metadata file."""
         json_bytes = self.metadata.json(exclude_none=True).encode()
-        bz2_bytes = bz2.compress(json_bytes)
-        meta_path = self._mktemp()
+        gz_bytes = gzip.compress(json_bytes)
+        meta_path = self._tempdir / 'metadata.gz.age'
         try:
-            Age.encrypt_bytes(bz2_bytes, meta_path, self._recipients)
+            Age.encrypt_bytes(gz_bytes, meta_path, self._recipients)
         except Exception:
             raise Exception('Failed to encrypt metadata.')
         for attempt in range(0, _MAX_ATTEMPTS):
