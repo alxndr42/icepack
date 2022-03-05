@@ -287,7 +287,7 @@ def create_archive(
     if src_path.is_file():
         sources = [src_path]
     elif src_path.is_dir():
-        sources = list(File.children(src_path))
+        sources = [src_path] + list(File.children(src_path))
         sources.sort(key=_sort_key)
     else:
         raise Exception(f'Invalid source: {src_path}')
