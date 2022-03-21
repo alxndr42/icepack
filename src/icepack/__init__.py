@@ -77,7 +77,7 @@ class IcepackReader(IcepackBase):
         if entry.is_dir():
             dst_path.mkdir(parents=True, exist_ok=True)
             if self._mode and entry.mode is not None:
-                dst_path.chmod(entry.mode)
+                dst_path.chmod(entry.mode & 0o7777)
             if self._mtime and entry.mtime is not None:
                 os.utime(dst_path, ns=(entry.mtime, entry.mtime))
             return dst_path
@@ -98,7 +98,7 @@ class IcepackReader(IcepackBase):
             self._uncompress_path(tmp_path, dst_path, entry.compression)
             tmp_path.unlink()
         if self._mode and entry.mode is not None:
-            dst_path.chmod(entry.mode)
+            dst_path.chmod(entry.mode & 0o7777)
         if self._mtime and entry.mtime is not None:
             os.utime(dst_path, ns=(entry.mtime, entry.mtime))
         return dst_path
