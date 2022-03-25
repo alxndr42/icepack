@@ -1,6 +1,6 @@
 # icepack - Encrypting File Archiver
 
-icepack combines [age encryption][], [SSH signatures][] and Zip files to create
+icepack combines [age encryption][], [SSH signatures][] and ZIP files to create
 encrypted and verifiable archives. Except for the number of files and their
 approximate size, no metadata is visible.
 
