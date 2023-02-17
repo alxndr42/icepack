@@ -14,3 +14,6 @@ pycodestyle = "*"
 pytest = "*"
 pytest-datadir = "*"
 twine = "*"
+
+[requires]
+python_version = "3.8"
