@@ -1,3 +1,4 @@
+import gzip
 import hashlib
 import os
 from pathlib import Path
@@ -10,6 +11,9 @@ from zipfile import ZIP_STORED, is_zipfile, ZipFile, ZipInfo
 from icepack.error import InvalidArchiveError
 from icepack.meta import NAME, SECRET_KEY, PUBLIC_KEY, ALLOWED_SIGNERS
 
+
+# If this environment variable is set to 'false', do not use pigz.
+PIGZ_ENV = 'ICEPACK_PIGZ'
 
 _BUFFER_SIZE = 64 * 1024
 _PUBLIC_KEY_PREFIX = 'age'
@@ -134,6 +138,50 @@ class File():
                     break
                 d.update(chunk)
         return d.hexdigest()
+
+
+class GZip():
+    """gzip helpers."""
+    @staticmethod
+    def compress(src_path, dst_path):
+        """Compress src_path to dst_path."""
+        pigz_env = os.environ.get(PIGZ_ENV)
+        if GZip.has_pigz() and pigz_env != 'false':
+            with open(dst_path, 'wb') as dst:
+                subprocess.run(  # nosec Trusted input
+                    ['pigz', '-c', '-m', '-n', '-9', str(src_path)],
+                    stdout=dst,
+                    check=True)
+        else:
+            with open(src_path, 'rb') as src:
+                with gzip.open(dst_path, 'wb') as dst:
+                    copyfileobj(src, dst, _BUFFER_SIZE)
+
+    @staticmethod
+    def decompress(src_path, dst_path):
+        """Decompress src_path to dst_path."""
+        with gzip.open(src_path, 'rb') as src:
+            with open(dst_path, 'wb') as dst:
+                copyfileobj(src, dst, _BUFFER_SIZE)
+
+    @staticmethod
+    def has_pigz():
+        """Return True if pigz is available."""
+        return which('pigz') is not None
+
+    @staticmethod
+    def pigz_version():
+        """Return the pigz version, or None."""
+        version = None
+        if GZip.has_pigz():
+            result = subprocess.run(  # nosec Trusted input
+                ['pigz', '--version'],
+                capture_output=True,
+                text=True,
+                timeout=5)
+            if result.returncode == 0:
+                version = result.stdout.strip()
+        return version
 
 
 class SSH():

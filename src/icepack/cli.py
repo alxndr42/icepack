@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 
 from icepack import IcepackReader, create_archive, extract_archive
-from icepack.helper import Age, File, SSH
+from icepack.helper import Age, File, GZip, SSH
 from icepack.meta import NAME, VERSION, SECRET_KEY, PUBLIC_KEY
 from icepack.model import Compression
 
@@ -167,6 +167,9 @@ def version(ctx, dependencies):
         click.echo(f'✅ ssh-keygen found.')
     else:
         click.echo(f'❌ ssh-keygen not found.')
+    pigz_version = GZip.pigz_version()
+    if pigz_version:
+        click.echo(f'✅ pigz found. (Version: {pigz_version})')
 
 
 @icepack.group()

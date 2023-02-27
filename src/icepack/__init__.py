@@ -9,7 +9,7 @@ from shutil import copyfileobj, rmtree
 from pydantic import ValidationError
 
 from icepack.error import InvalidArchiveError
-from icepack.helper import Age, File, SSH, Zip
+from icepack.helper import Age, File, GZip, SSH, Zip
 from icepack.meta import SECRET_KEY, PUBLIC_KEY, ALLOWED_SIGNERS
 from icepack.model import Checksum, Compression, Encryption
 from icepack.model import DirEntry, FileEntry, Metadata
@@ -146,16 +146,15 @@ class IcepackReader(IcepackBase):
 
     def _uncompress_path(self, src_path, dst_path, compression):
         """Uncompressed src_path to dst_path."""
-        with open(dst_path, 'wb') as dst:
-            with open(src_path, 'rb') as src_file:
-                if compression == Compression.BZ2:
+        if compression == Compression.BZ2:
+            with open(dst_path, 'wb') as dst:
+                with open(src_path, 'rb') as src_file:
                     with bz2.open(src_file, 'rb') as src:
                         copyfileobj(src, dst, _BUFFER_SIZE)
-                elif compression == Compression.GZ:
-                    with gzip.open(src_file, 'rb') as src:
-                        copyfileobj(src, dst, _BUFFER_SIZE)
-                else:
-                    raise Exception('Unsupported compression.')
+        elif compression == Compression.GZ:
+            GZip.decompress(src_path, dst_path)
+        else:
+            raise Exception('Unsupported compression.')
 
 
 class IcepackWriter(IcepackBase):
@@ -249,15 +248,14 @@ class IcepackWriter(IcepackBase):
     def _compress_path(self, src_path):
         """Return the temporary Path of the compressed src_path."""
         tmp_path = self._mktemp()
-        with open(src_path, 'rb') as src:
-            if self._compression == Compression.BZ2:
+        if self._compression == Compression.BZ2:
+            with open(src_path, 'rb') as src:
                 with bz2.open(tmp_path, 'wb') as dst:
                     copyfileobj(src, dst, _BUFFER_SIZE)
-            elif self._compression == Compression.GZ:
-                with gzip.open(tmp_path, 'wb') as dst:
-                    copyfileobj(src, dst, _BUFFER_SIZE)
-            else:
-                raise Exception('Unsupported compression.')
+        elif self._compression == Compression.GZ:
+            GZip.compress(src_path, tmp_path)
+        else:
+            raise Exception('Unsupported compression.')
         return tmp_path
 
     def _encrypt_path(self, src_path):
