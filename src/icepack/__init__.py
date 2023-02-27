@@ -1,4 +1,3 @@
-import bz2
 import gzip
 import json
 import os
@@ -9,13 +8,12 @@ from shutil import copyfileobj, rmtree
 from pydantic import ValidationError
 
 from icepack.error import InvalidArchiveError
-from icepack.helper import Age, File, GZip, SSH, Zip
+from icepack.helper import Age, BZip2, File, GZip, SSH, Zip
 from icepack.meta import SECRET_KEY, PUBLIC_KEY, ALLOWED_SIGNERS
 from icepack.model import Checksum, Compression, Encryption
 from icepack.model import DirEntry, FileEntry, Metadata
 
 
-_BUFFER_SIZE = 64 * 1024
 _MAX_ATTEMPTS = 3
 _METADATA_RE = re.compile(r'^metadata\.(\w+)\.(\w+)$')
 
@@ -95,7 +93,7 @@ class IcepackReader(IcepackBase):
             tmp_path = self._mktemp()
             self._decrypt_path(age_path, tmp_path)
             age_path.unlink()
-            self._uncompress_path(tmp_path, dst_path, entry.compression)
+            self._decompress_path(tmp_path, dst_path, entry.compression)
             tmp_path.unlink()
         if self._mode and entry.mode is not None:
             dst_path.chmod(entry.mode & 0o7777)
@@ -144,13 +142,10 @@ class IcepackReader(IcepackBase):
         meta_path.unlink()
         sig_path.unlink()
 
-    def _uncompress_path(self, src_path, dst_path, compression):
-        """Uncompressed src_path to dst_path."""
+    def _decompress_path(self, src_path, dst_path, compression):
+        """Decompress src_path to dst_path."""
         if compression == Compression.BZ2:
-            with open(dst_path, 'wb') as dst:
-                with open(src_path, 'rb') as src_file:
-                    with bz2.open(src_file, 'rb') as src:
-                        copyfileobj(src, dst, _BUFFER_SIZE)
+            BZip2.decompress(src_path, dst_path)
         elif compression == Compression.GZ:
             GZip.decompress(src_path, dst_path)
         else:
@@ -249,9 +244,7 @@ class IcepackWriter(IcepackBase):
         """Return the temporary Path of the compressed src_path."""
         tmp_path = self._mktemp()
         if self._compression == Compression.BZ2:
-            with open(src_path, 'rb') as src:
-                with bz2.open(tmp_path, 'wb') as dst:
-                    copyfileobj(src, dst, _BUFFER_SIZE)
+            BZip2.compress(src_path, tmp_path)
         elif self._compression == Compression.GZ:
             GZip.compress(src_path, tmp_path)
         else:

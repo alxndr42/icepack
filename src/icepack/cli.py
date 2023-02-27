@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 
 from icepack import IcepackReader, create_archive, extract_archive
-from icepack.helper import Age, File, GZip, SSH
+from icepack.helper import Age, BZip2, File, GZip, SSH
 from icepack.meta import NAME, VERSION, SECRET_KEY, PUBLIC_KEY
 from icepack.model import Compression
 
@@ -170,6 +170,9 @@ def version(ctx, dependencies):
     pigz_version = GZip.pigz_version()
     if pigz_version:
         click.echo(f'✅ pigz found. (Version: {pigz_version})')
+    pbzip2_version = BZip2.pbzip2_version()
+    if pbzip2_version:
+        click.echo(f'✅ pbzip2 found. (Version: {pbzip2_version})')
 
 
 @icepack.group()

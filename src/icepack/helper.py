@@ -1,3 +1,4 @@
+import bz2
 import gzip
 import hashlib
 import os
@@ -12,6 +13,8 @@ from icepack.error import InvalidArchiveError
 from icepack.meta import NAME, SECRET_KEY, PUBLIC_KEY, ALLOWED_SIGNERS
 
 
+# If this environment variable is set to 'false', do not use pbzip2.
+PBZIP2_ENV = 'ICEPACK_PBZIP2'
 # If this environment variable is set to 'false', do not use pigz.
 PIGZ_ENV = 'ICEPACK_PIGZ'
 
@@ -181,6 +184,51 @@ class GZip():
                 timeout=5)
             if result.returncode == 0:
                 version = result.stdout.strip()
+        return version
+
+
+class BZip2():
+    """bzip2 helpers."""
+    @staticmethod
+    def compress(src_path, dst_path):
+        """Compress src_path to dst_path."""
+        pbzip2_env = os.environ.get(PBZIP2_ENV)
+        if BZip2.has_pbzip2() and pbzip2_env != 'false':
+            with open(dst_path, 'wb') as dst:
+                subprocess.run(  # nosec Trusted input
+                    ['pbzip2', '-c', str(src_path)],
+                    stdout=dst,
+                    check=True)
+        else:
+            with open(src_path, 'rb') as src:
+                with bz2.open(dst_path, 'wb') as dst:
+                    copyfileobj(src, dst, _BUFFER_SIZE)
+
+    @staticmethod
+    def decompress(src_path, dst_path):
+        """Decompress src_path to dst_path."""
+        with bz2.open(src_path, 'rb') as src:
+            with open(dst_path, 'wb') as dst:
+                copyfileobj(src, dst, _BUFFER_SIZE)
+
+    @staticmethod
+    def has_pbzip2():
+        """Return True if pbzip2 is available."""
+        return which('pbzip2') is not None
+
+    @staticmethod
+    def pbzip2_version():
+        """Return the pbzip2 version, or None."""
+        version = None
+        if BZip2.has_pbzip2():
+            result = subprocess.run(  # nosec Trusted input
+                ['pbzip2', '--version'],
+                capture_output=True,
+                text=True,
+                timeout=5)
+            if result.returncode == 0:
+                version = result.stderr.strip()
+                version = version.split('\n')[0]
         return version
 
 
