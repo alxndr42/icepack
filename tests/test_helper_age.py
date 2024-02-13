@@ -6,8 +6,8 @@ from helper import dst_path, src_path
 def test_keygen():
     """Test Age.keygen()."""
     secret_key, public_key = Age.keygen()
-    assert type(secret_key) == str
-    assert type(public_key) == str
+    assert isinstance(secret_key, str)
+    assert isinstance(public_key, str)
     assert secret_key.startswith('AGE-SECRET-KEY-')
     assert public_key.startswith('age')
 
